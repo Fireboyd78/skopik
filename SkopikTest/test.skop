@@ -1,0 +1,25 @@
+﻿test_int = 32
+test_uint = 64u
+test_long = 128L
+
+test_double = 96.975
+test_float = 50.25f
+
+test_string = "hello world"
+
+test_array = ["hello", "world"]
+
+"Test scope" : {
+    test_int = 32
+    test_uint = 64u
+    test_long = 128L
+    
+    test_double = 96.975
+    test_float = 50.25f
+    
+    test_string = "hello world"
+    
+    test_array = ["hello", "world"]
+}
+
+test_inline = { test = "string index 0 = test"; inline = "string index 1 = inline"; }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -10,19 +11,40 @@ namespace SkopikTest
 {
     class Program
     {
+        static void WriteLog(string message)
+        {
+            Console.WriteLine(message);
+            Debug.WriteLine(message);
+        }
+
         static void Main(string[] args)
         {
             var timer = new Stopwatch();
+            var testFilename = Path.Combine(Environment.CurrentDirectory, "test.skop");
+
+            WriteLog($"Running tests on file: {testFilename}");
+
+            if (!File.Exists(testFilename))
+            {
+                WriteLog("Test file not found, what did you do?!");
+                return;
+            }
+
+            // how many times to parse it
+            var nLoops = 5000;
 
             timer.Start();
-            for (int v = 0; v < 5000; v++)
+            for (int v = 0; v < nLoops; v++)
             {
-                var skopFile = new SkopikFile(@"C:\Dev\Research\Skop\test.skop");
+                var skopFile = new SkopikFile(testFilename);
                 skopFile.Parse();
             }
             timer.Stop();
-            
-            Debug.WriteLine($"5,000 SKOP files took {timer.ElapsedMilliseconds}ms");
+
+            var totalTime = timer.ElapsedMilliseconds;
+            var averageTime = (double)totalTime / nLoops;
+
+            WriteLog($"Parsed {nLoops:N0} files in {timer.ElapsedMilliseconds}ms (avg: {averageTime:F4}ms).");
         }
     }
 }
