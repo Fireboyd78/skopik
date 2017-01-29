@@ -143,8 +143,7 @@ namespace Skopik
             };
 
             int nestLevel = 0;
-
-            // ughhhhhhhh this is fucking broken, can't fucking find the end of a scope!!!!
+            
             while (!Reader.EndOfStream)
             {
                 var token = Reader.GetNextToken();
