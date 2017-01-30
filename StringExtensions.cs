@@ -122,6 +122,9 @@ namespace Skopik
                 {
                     if (!stringOpen)
                     {
+                        if (length > 0)
+                            values.Add(@this.Substring(start, length));
+
                         values.Add(c.ToString());
 
                         start = (i + 1);

@@ -7,19 +7,26 @@ test_float = 50.25f
 
 test_string = "hello world"
 
-test_array = ["hello", "world"]
+"Test array" : [
+    [ "hello", "world" ],
+    { description = "this is a totally anonymous scope, with no name whatsoever." },
+    
+    [3]: "skipping #2",
+    
+    "this should be #4",
+    
+    32, 64, 128, 256, 512,
+]
 
 "Test scope" : {
-    test_int = 32
-    test_uint = 64u
-    test_long = 128L
-    
-    test_double = 96.975
-    test_float = 50.25f
-    
-    test_string = "hello world"
-    
-    test_array = ["hello", "world"]
+    description = "this is a test scope"
+    test_array = [
+        "nested array #1" : [ 
+            "nested array #2" : [
+                [ "a deeply nested array" ],
+            ],
+        ],
+    ]
 }
 
 test_inline = { test = "string index 0 = test"; inline = "string index 1 = inline"; }

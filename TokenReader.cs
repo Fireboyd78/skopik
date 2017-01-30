@@ -162,17 +162,15 @@ namespace Skopik
             return CheckToken(m_tokenIndex);
         }
 
-        public bool FindPattern(string[] tokens, int index, out int tokensIndex)
+        public int FindPattern(string[] tokens, int index)
         {
-            tokensIndex = -1;
-
             if (EndOfStream)
                 throw new InvalidOperationException("GetTokensIndex() -- end of stream exception.");
 
             // do not look past the end of the line
             // the user may decide to move to the next line if necessary
             if (EndOfLine || ((index + tokens.Length) >= m_tokenBuffer.Length))
-                return false;
+                return -1;
 
             // index into the tokens we're looking for
             var tokenIndex = 0;
@@ -192,8 +190,7 @@ namespace Skopik
                             therefore:
                               tokensIndex = 6
                         */
-                        tokensIndex = (i - tokenIndex);
-                        return true;
+                        return (i - tokenIndex);
                     }
 
                     ++tokenIndex;
@@ -206,12 +203,12 @@ namespace Skopik
                 }
             }
 
-            return false;
+            return -1;
         }
         
-        public bool FindNextPattern(string[] tokens, out int tokensIndex)
+        public int FindNextPattern(string[] tokens)
         {
-            return FindPattern(tokens, m_tokenIndex, out tokensIndex);
+            return FindPattern(tokens, m_tokenIndex);
         }
 
         public bool MatchToken(string matchToken, string nestedToken)

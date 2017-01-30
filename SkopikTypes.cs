@@ -5,6 +5,9 @@ using System.Text;
 
 namespace Skopik
 {
+    using ArrayDataValue = List<SkopikObjectType>;
+    using ScopeDataValue = Dictionary<string, SkopikObjectType>;
+
     public enum SkopikDataType
     {
         Invalid         = -1,
@@ -78,8 +81,6 @@ namespace Skopik
 
     public class SkopikScopeType : SkopikBaseScopeType
     {
-        public class ScopeDataValue : Dictionary<string, SkopikObjectType> { }
-        
         public override SkopikDataType DataType
         {
             get { return SkopikDataType.Scope; }
@@ -122,11 +123,9 @@ namespace Skopik
             Name = name;
         }
     }
-
+    
     public class SkopikArrayType : SkopikBaseScopeType
     {
-        public class ArrayDataValue : List<SkopikObjectType> { }
-
         public override SkopikDataType DataType
         {
             get { return SkopikDataType.Array; }
