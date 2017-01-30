@@ -121,18 +121,11 @@ namespace Skopik
                     }
                     if (Skopik.IsScopeBlockOperator(op))
                     {
-                        var scStart = Reader.Line;
-                        
                         var scopeName = Reader.GetToken(-1).StripQuotes();
                         obj = ReadScope(scopeName);
-
-                        var scEnd = Reader.Line;
-
-                        if (scStart == scEnd)
-                            scEnd = -1;
-
+                        
                         // generate unique name
-                        name = $"<scope::[{scStart},{scEnd}]>";
+                        name = $"<scope::('{scopeName}')>";
                     }
                     
                     var nextToken = Reader.PeekToken();
