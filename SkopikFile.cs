@@ -18,7 +18,9 @@ namespace Skopik
             get
             {
                 if (_globalScope == null)
-                    _globalScope = new SkopikScopeType();
+                    _globalScope = new SkopikScopeType() {
+                        Name = "<global>"
+                    };
 
                 return _globalScope;
             }
@@ -27,11 +29,9 @@ namespace Skopik
         public void Parse()
         {
             using (var ms = new MemoryStream(File.ReadAllBytes(FileName)))
-            using (var reader = new TokenReader(ms))
+            using (var skop = new SkopikReader(ms))
             {
-                var skop = new SkopikReader(reader);
-
-                skop.ReadScope(GlobalScope);
+                skop.ReadNestedScope(GlobalScope, $"<scope::('{Path.GetFileNameWithoutExtension(FileName)}')>");
             }
         }
         

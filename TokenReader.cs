@@ -25,7 +25,12 @@ namespace Skopik
         {
             get { return m_line; }
         }
-        
+
+        public int TokenIndex
+        {
+            get { return m_tokenIndex; }
+        }
+
         public bool EndOfStream
         {
             get { return (Reader != null) ? (Reader.EndOfStream) ? (m_tokenIndex >= m_tokenBuffer.Length) : false : true; }
@@ -34,7 +39,7 @@ namespace Skopik
         public void Dispose()
         {
             if (Reader != null)
-                ((IDisposable)Reader).Dispose();
+                Reader.Dispose();
         }
 
         /// <summary>
@@ -162,14 +167,6 @@ namespace Skopik
             return match;
         }
         
-        public TokenReader(string filename)
-        {
-            if (!File.Exists(filename))
-                throw new FileNotFoundException($"File '{filename}' not found, cannot instantiate a new TokenReader.");
-
-            Reader = new StreamReader(filename, true);
-        }
-
         public TokenReader(Stream stream)
         {
             if (!stream.CanRead || !stream.CanSeek)

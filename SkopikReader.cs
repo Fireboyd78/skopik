@@ -8,13 +8,22 @@ using System.Text;
 namespace Skopik
 {
     // internal class for reading .skop files quickly
-    internal class SkopikReader
+    internal class SkopikReader : IDisposable
     {
         protected TokenReader Reader { get; }
-        
+
+        public void Dispose()
+        {
+            if (Reader != null)
+                Reader.Dispose();
+        }
+
         public SkopikObjectType ReadObject(SkopikBaseScopeType parent)
         {
-            var token = Reader.GetNextToken();            
+            if (parent == null)
+                throw new ArgumentNullException(nameof(parent), "Parent cannot be null.");
+
+            var token = Reader.GetNextToken();
             var dataType = Skopik.GetDataType(token);
 
             if (dataType == SkopikDataType.Invalid)
@@ -33,7 +42,7 @@ namespace Skopik
                     if (Skopik.IsScopeBlockOperator(nextToken))
                     {
                         // will add any children to the scope data
-                        return ReadScope(parent, strValue);
+                        return ReadNestedScope(parent, strValue);
                     }
                 }
 
@@ -46,7 +55,7 @@ namespace Skopik
             if (dataType == SkopikDataType.Array)
                 return ReadArray(parent);
             if (dataType == SkopikDataType.Scope)
-                return ReadScope(parent);
+                return ReadNestedScope(parent);
 
             if (dataType == SkopikDataType.Boolean)
                 return new SkopikBooleanType(token);
@@ -82,23 +91,48 @@ namespace Skopik
 
         public SkopikObjectType ReadStatement(SkopikBaseScopeType parent)
         {
+            if (parent == null)
+                throw new ArgumentNullException(nameof(parent), "Parent cannot be null.");
+
             SkopikObjectType obj = new SkopikNullType();
             
             if (parent is SkopikScopeType)
             {
-                var token = Reader.GetCurrentToken();
+                var name = Reader.GetCurrentToken();
                 var op = Reader.PeekToken();
-
+                
                 if (!String.IsNullOrEmpty(op))
                 {
                     Reader.SkipToken();
 
                     if (Skopik.IsAssignmentOperator(op))
-                        obj = ReadObject(parent);
+                    {
+                        var isScopeAssignment = false;
+
+                        op = Reader.PeekToken();
+                        
+                        if (!String.IsNullOrEmpty(op))
+                        {
+                            if (Skopik.IsOpeningBrace(op) && (Skopik.GetControlDataType(op) == SkopikDataType.Scope))
+                                isScopeAssignment = true;
+                        }
+
+                        obj = (isScopeAssignment) ? ReadScope() : ReadObject(parent);
+                    }
                     if (Skopik.IsScopeBlockOperator(op))
                     {
+                        var scStart = Reader.Line;
+                        
                         var scopeName = Reader.GetToken(-1).StripQuotes();
-                        obj = ReadScope(parent, scopeName);
+                        obj = ReadScope(scopeName);
+
+                        var scEnd = Reader.Line;
+
+                        if (scStart == scEnd)
+                            scEnd = -1;
+
+                        // generate unique name
+                        name = $"<scope::[{scStart},{scEnd}]>";
                     }
                     
                     var nextToken = Reader.PeekToken();
@@ -115,8 +149,8 @@ namespace Skopik
                     }
                 }
 
-                if (!(obj is SkopikScopeType))
-                    ((SkopikScopeType)parent).ScopeData.Add(token, obj);
+                // add to the parent scope as a variable
+                ((SkopikScopeType)parent).ScopeData.Add(name, obj);
             }
             else
             {
@@ -128,22 +162,29 @@ namespace Skopik
 
         public SkopikArrayType ReadArray(SkopikBaseScopeType parent)
         {
+            var aryStart = Reader.Line;
+
             // we skip arrays for now since I'm not entirely sure how to parse them
             // assuming the array is already opened...
             if (!Reader.MatchToken("]", "["))
                 throw new InvalidOperationException($"ReadArray() -- Unclosed array @ line {Reader.Line}.");
 
-            return new SkopikArrayType("_ARRAY_");
+            var aryEnd = Reader.Line;
+
+            if (aryStart == aryEnd)
+                aryEnd = -1;
+
+            return new SkopikArrayType($"<array::[{aryStart},{aryEnd}]>");
         }
 
-        public SkopikScopeType ReadScope(SkopikBaseScopeType parent, string scopeName = "")
+        public SkopikScopeType ReadScope(string scopeName = "")
         {
             var scope = new SkopikScopeType() {
                 Name = scopeName
             };
 
             int nestLevel = 0;
-            
+
             while (!Reader.EndOfStream)
             {
                 var token = Reader.GetNextToken();
@@ -170,9 +211,11 @@ namespace Skopik
 
                     if (Skopik.IsClosingBrace(token))
                     {
+                        // end of scope
                         if (nestLevel > 0)
                             --nestLevel;
 
+                        // no more scopes?
                         if (nestLevel == 0)
                             break;
                     }
@@ -180,9 +223,20 @@ namespace Skopik
 
                 obj = ReadStatement(scope);
 
+                // stop if there's nothing left to read
                 if (obj == null)
                     break;
             }
+
+            return scope;
+        }
+
+        public SkopikScopeType ReadNestedScope(SkopikBaseScopeType parent, string scopeName = "")
+        {
+            if (parent == null)
+                throw new ArgumentNullException(nameof(parent), "Parent cannot be null.");
+
+            var scope = ReadScope(scopeName);
 
             if (parent is SkopikScopeType)
                 ((SkopikScopeType)parent).ScopeData.Add(scopeName, scope);
@@ -191,13 +245,13 @@ namespace Skopik
 
             return scope;
         }
-
-        public SkopikReader(TokenReader reader)
+        
+        public SkopikReader(Stream stream)
         {
-            if (reader == null)
-                throw new ArgumentNullException(nameof(reader), "Reader cannot be null.");
+            if (stream == null)
+                throw new ArgumentNullException(nameof(stream), "Stream cannot be null.");
 
-            Reader = reader;
+            Reader = new TokenReader(stream);
         }
     }
 }
