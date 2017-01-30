@@ -40,7 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CharUtils.cs" />
-    <Compile Include="ObjectTypes.cs" />
+    <Compile Include="SkopikTypes.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Skopik.cs" />
     <Compile Include="SkopikFile.cs" />
