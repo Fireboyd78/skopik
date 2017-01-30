@@ -23,45 +23,68 @@ namespace Skopik
             if (parent == null)
                 throw new ArgumentNullException(nameof(parent), "Parent cannot be null.");
 
-            var token = Reader.GetNextToken();
+            var token = Reader.ReadToken();
             var dataType = Skopik.GetDataType(token);
 
             if (dataType == SkopikDataType.Invalid)
-                Console.WriteLine($"ReadObject() -- Couldn't determine data type @ line {Reader.Line}: '{token}'.");
-
+                Console.WriteLine($"ReadObject() -- Couldn't determine data type @ line {Reader.CurrentLine}: '{token}'.");
+            
             // check for either strings or named scopes (e.g. ' "Inlined scope" : { ... } '
             if (dataType == SkopikDataType.String)
             {
-                // peek for the scope assignment operator
-                var nextToken = Reader.PeekToken();
                 var strValue = token.StripQuotes();
-
-                if (!String.IsNullOrEmpty(nextToken))
+                
+                if (!Reader.EndOfLine)
                 {
-                    // if it's an inline named scope, read the scope
+                    // peek for the scope assignment operator
+                    var nextToken = Reader.PeekToken();
+
                     if (Skopik.IsScopeBlockOperator(nextToken))
                     {
-                        // will add any children to the scope data
-                        return ReadNestedScope(parent, strValue);
+                        Reader.PopToken();
+
+                        // no need to peek for this one
+                        nextToken = Reader.ReadToken();
+
+                        // named scopes
+                        if (Skopik.IsOpeningBrace(nextToken))
+                        {
+                            dataType = Skopik.GetControlDataType(token);
+
+                            if (dataType == SkopikDataType.Array)
+                                return ReadArray(strValue);
+                            if (dataType == SkopikDataType.Scope)
+                                return ReadScope(strValue);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException($"ReadObject() -- malformed data on line {Reader.CurrentLine}.");
+                        }
                     }
                 }
-
+                
                 return new SkopikStringType(strValue);
             }
 
             if (dataType == SkopikDataType.Reserved)
-                Console.WriteLine($"Unknown data @ line {Reader.Line}: '{token}'");
-
-            if (dataType == SkopikDataType.Array)
-                return ReadArray(parent);
-            if (dataType == SkopikDataType.Scope)
-                return ReadNestedScope(parent);
-
+                Console.WriteLine($"Unknown data @ line {Reader.CurrentLine}: '{token}'");
+            
             if (dataType == SkopikDataType.Boolean)
                 return new SkopikBooleanType(token);
 
             if (dataType == SkopikDataType.Null)
                 return new SkopikNullType();
+
+            // anonymous scope/array?
+            if (Skopik.IsOpeningBrace(token))
+            {
+                dataType = Skopik.GetControlDataType(token);
+
+                if (dataType == SkopikDataType.Array)
+                    return ReadArray();
+                if (dataType == SkopikDataType.Scope)
+                    return ReadScope();
+            }
 
             //TODO: Strip prefix
             if (Skopik.IsNumberValue(dataType))
@@ -98,47 +121,57 @@ namespace Skopik
             
             if (parent is SkopikScopeType)
             {
-                var name = Reader.GetCurrentToken();
-                var op = Reader.PeekToken();
+                var name = Reader.ReadToken();
                 
-                if (!String.IsNullOrEmpty(op))
+                if (!Reader.EndOfLine)
                 {
-                    Reader.SkipToken();
+                    var op = Reader.PeekToken();
 
                     if (Skopik.IsAssignmentOperator(op))
                     {
-                        var isScopeAssignment = false;
-
-                        op = Reader.PeekToken();
-                        
-                        if (!String.IsNullOrEmpty(op))
-                        {
-                            if (Skopik.IsOpeningBrace(op) && (Skopik.GetControlDataType(op) == SkopikDataType.Scope))
-                                isScopeAssignment = true;
-                        }
-
-                        obj = (isScopeAssignment) ? ReadScope() : ReadObject(parent);
+                        // move past the assignment operator
+                        Reader.PopToken();
+                        obj = ReadObject(parent);
                     }
+
                     if (Skopik.IsScopeBlockOperator(op))
                     {
-                        var scopeName = Reader.GetToken(-1).StripQuotes();
-                        obj = ReadScope(scopeName);
-                        
-                        // generate unique name
-                        name = $"<scope::('{scopeName}')>";
-                    }
-                    
-                    var nextToken = Reader.PeekToken();
+                        Reader.PopToken();
 
-                    if (!String.IsNullOrEmpty(nextToken))
+                        op = Reader.ReadToken();
+
+                        // named scopes
+                        if (Skopik.IsOpeningBrace(op))
+                        {
+                            var dataType = Skopik.GetControlDataType(op);
+                            var scopeName = name.StripQuotes();
+
+                            if (dataType == SkopikDataType.Array)
+                            {
+                                obj = ReadArray(scopeName);
+                                name = $"<array::('{scopeName}')>";
+                            }
+                            if (dataType == SkopikDataType.Scope)
+                            {
+                                obj = ReadScope(scopeName);
+                                name = $"<scope::('{scopeName}')>";
+                            }
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException($"ReadObject() -- malformed data on line {Reader.CurrentLine}.");
+                        }
+                    }
+
+                    if (!Reader.EndOfLine)
                     {
+                        var nextToken = Reader.PeekToken();
+
                         // move to next statement
                         if (Skopik.IsSeparator(nextToken, false))
-                            Reader.SkipToken();
+                            Reader.PopToken();
                         if (Skopik.IsCommentLine(nextToken))
-                            Reader.SkipLine();
-                        if (Skopik.GetControlDataType(nextToken) == SkopikDataType.Scope)
-                            Reader.SkipToken();
+                            Reader.NextLine();
                     }
                 }
 
@@ -153,16 +186,16 @@ namespace Skopik
             return obj;
         }
 
-        public SkopikArrayType ReadArray(SkopikBaseScopeType parent)
+        public SkopikArrayType ReadArray(string arrayName = "")
         {
-            var aryStart = Reader.Line;
+            var aryStart = Reader.CurrentLine;
 
             // we skip arrays for now since I'm not entirely sure how to parse them
             // assuming the array is already opened...
             if (!Reader.MatchToken("]", "["))
-                throw new InvalidOperationException($"ReadArray() -- Unclosed array @ line {Reader.Line}.");
+                throw new InvalidOperationException($"ReadArray() -- Unclosed array @ line {aryStart}.");
 
-            var aryEnd = Reader.Line;
+            var aryEnd = Reader.CurrentLine;
 
             if (aryStart == aryEnd)
                 aryEnd = -1;
@@ -170,49 +203,39 @@ namespace Skopik
             return new SkopikArrayType($"<array::[{aryStart},{aryEnd}]>");
         }
 
+        public SkopikArrayType ReadNestedArray(SkopikBaseScopeType parent, string arrayName = "")
+        {
+            var array = ReadArray(arrayName);
+
+            if (parent is SkopikScopeType)
+                ((SkopikScopeType)parent).ScopeData.Add(arrayName, array);
+            if (parent is SkopikArrayType)
+                ((SkopikArrayType)parent).ArrayData.Add(array);
+
+            return array;
+        }
+        
         public SkopikScopeType ReadScope(string scopeName = "")
         {
             var scope = new SkopikScopeType() {
                 Name = scopeName
             };
-
-            int nestLevel = 0;
-
+            
             while (!Reader.EndOfStream)
             {
-                var token = Reader.GetNextToken();
+                var token = Reader.ReadToken();
 
-                if (String.IsNullOrEmpty(token))
+                if (String.IsNullOrEmpty(token) || Skopik.IsCommentLine(token))
                     continue;
 
                 SkopikObjectType obj = null;
 
-                if (Skopik.GetControlDataType(token) == SkopikDataType.Scope)
-                {
-                    if (Skopik.IsOpeningBrace(token))
-                    {
-                        var cTok = Reader.GetToken(-1);
-
-                        if (Skopik.IsScopeBlockOperator(cTok))
-                            continue;
-
-                        // new scope
-                        ++nestLevel;
-                    }
-
-                    Reader.SkipToken();
-
-                    if (Skopik.IsClosingBrace(token))
-                    {
-                        // end of scope
-                        if (nestLevel > 0)
-                            --nestLevel;
-
-                        // no more scopes?
-                        if (nestLevel == 0)
-                            break;
-                    }
-                }
+                // end of current scope?
+                if (Skopik.IsClosingBrace(token))
+                    break;
+               
+                // move to beginning of statement
+                Reader.Seek(-1);
 
                 obj = ReadStatement(scope);
 

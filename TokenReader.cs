@@ -20,20 +20,36 @@ namespace Skopik
         }
         
         protected StreamReader Reader { get; set; }
-        
-        public int Line
+
+        public int CurrentLine
         {
             get { return m_line; }
         }
 
+        public bool EndOfLine
+        {
+            get { return (m_tokenBuffer != null) ? (m_tokenIndex >= m_tokenBuffer.Length) : true; }
+        }
+
+        public bool EndOfStream
+        {
+            get
+            {
+                if (Reader != null)
+                    return (Reader.EndOfStream && EndOfLine);
+
+                return true;
+            }
+        }
+        
         public int TokenIndex
         {
             get { return m_tokenIndex; }
         }
 
-        public bool EndOfStream
+        public int TokenCount
         {
-            get { return (Reader != null) ? (Reader.EndOfStream) ? (m_tokenIndex >= m_tokenBuffer.Length) : false : true; }
+            get { return (m_tokenBuffer != null) ? m_tokenBuffer.Length : -1;}
         }
         
         public void Dispose()
@@ -75,72 +91,132 @@ namespace Skopik
             return false;
         }
 
-        public int GetNumberOfTokens()
+        public bool NextLine()
         {
-            return (m_tokenBuffer != null) ? m_tokenBuffer.Length : -1;
+            // try filling in the buffer
+            // won't affect token index if it fails
+            return (ReadInTokens() != -1);
         }
-        
-        public string GetToken(int tokenIndex)
-        {
-            var index = (m_tokenIndex + tokenIndex);
 
+        public string GetToken(int index)
+        {
             if (CheckToken(index))
                 return (m_tokenBuffer[index]);
 
             // failed to get token :(
             return null;
         }
-
-        public string GetCurrentToken()
+        
+        public string PopToken(int offset = 0)
         {
-            return GetToken(0);
-        }
+            m_tokenIndex += offset;
 
-        public string GetNextToken()
+            // don't let the user pop too many values
+            if (m_tokenIndex < 0)
+                throw new InvalidOperationException("PopToken() -- offset caused negative index, too many values popped!");
+            
+            return GetToken(m_tokenIndex++);
+        }
+        
+        /// <summary>
+        /// Reads the next valid token from the buffer and increments the token index.
+        /// </summary>
+        /// <returns>The next valid token from the buffer; otherwise, null.</returns>
+        public string ReadToken()
         {
             string token = null;
             
             while (token == null)
             {
-                // try getting the next token from the buffer
-                token = GetToken(1);
-
-                ++m_tokenIndex;
-
-                // anything in the buffer?
-                if (token == null)
+                if (EndOfLine)
                 {
-                    // ok, try filling in the buffer
-                    // cancel if we reach EOF
-                    if (ReadInTokens() == -1)
-                        break;
+                    // don't proceed any further
+                    if (EndOfStream)
+                        return null;
 
-                    // wraparound to the next set of tokens
-                    m_tokenIndex = -1;
+                    NextLine();
                 }
+
+                token = GetToken(m_tokenIndex++);
             }
 
             return token;
         }
 
+        /// <summary>
+        /// Gets the next token from the buffer without incrementing the token index or filling the buffer.
+        /// </summary>
+        /// <returns>The next token from the buffer; otherwise, null.</returns>
         public string PeekToken()
         {
-            return GetToken(1);
+            return GetToken(m_tokenIndex);
         }
 
-        public bool SkipToken()
+        public bool Seek(int offset)
         {
-            return CheckToken(++m_tokenIndex);
+            m_tokenIndex += offset;
+
+            if (m_tokenIndex < 0)
+                throw new InvalidOperationException("Seek() -- offset caused negative index!");
+
+            return CheckToken(m_tokenIndex);
         }
 
-        public bool SkipLine()
+        public bool FindPattern(string[] tokens, int index, out int tokensIndex)
         {
-            return (ReadInTokens() != -1);
+            tokensIndex = -1;
+
+            if (EndOfStream)
+                throw new InvalidOperationException("GetTokensIndex() -- end of stream exception.");
+
+            // do not look past the end of the line
+            // the user may decide to move to the next line if necessary
+            if (EndOfLine || ((index + tokens.Length) >= m_tokenBuffer.Length))
+                return false;
+
+            // index into the tokens we're looking for
+            var tokenIndex = 0;
+
+            // iterate through the tokens available in the buffer
+            for (int i = index; i < m_tokenBuffer.Length; i++)
+            {
+                if (m_tokenBuffer[i] == tokens[tokenIndex])
+                {
+                    // stop when the pattern is found
+                    if ((tokenIndex + 1) == tokens.Length)
+                    {
+                        /*
+                            if "BAZ" in "FOOBARBAZ":
+                              tokenIndex = 2
+                              i = 8
+                            therefore:
+                              tokensIndex = 6
+                        */
+                        tokensIndex = (i - tokenIndex);
+                        return true;
+                    }
+
+                    ++tokenIndex;
+                }
+                else
+                {
+                    // reset the token index if needed
+                    if (tokenIndex > 0)
+                        tokenIndex = 0;
+                }
+            }
+
+            return false;
+        }
+        
+        public bool FindNextPattern(string[] tokens, out int tokensIndex)
+        {
+            return FindPattern(tokens, m_tokenIndex, out tokensIndex);
         }
 
         public bool MatchToken(string matchToken, string nestedToken)
         {
-            var startLine = Line;
+            var startLine = CurrentLine;
             
             // TODO: Fix this?
             if (nestedToken.Length != matchToken.Length)
@@ -150,13 +226,13 @@ namespace Skopik
             var match = false;
             var token = "";
 
-            while (!match && (token = GetNextToken()) != null)
+            while (!match && (token = ReadToken()) != null)
             {
                 if (token == matchToken)
                     match = true;
                 if (token == nestedToken)
                 {
-                    var nestLine = Line;
+                    var nestLine = CurrentLine;
 
                     // nested blocks
                     if (!MatchToken(matchToken, nestedToken))
@@ -173,6 +249,9 @@ namespace Skopik
                 throw new EndOfStreamException("Cannot instantiate a new TokenReader on a closed/ended Stream.");
 
             Reader = new StreamReader(stream, true);
+
+            if (ReadInTokens() == -1)
+                throw new InvalidOperationException("Failed to create TokenReader -- could not read in tokens.");
         }
     }
 }
