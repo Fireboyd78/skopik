@@ -1,32 +1,39 @@
-﻿test_int = 32
-test_uint = 64u
-test_long = 128L
+﻿test_null
 
-test_double = 96.975
-test_float = 50.25f
+test_int    = [ 32, -32, 0x12345, -0x12345 ]
+test_uint   = [ 64u, 0xFFu ]
+test_long   = [ 128L, -128L, 0xABCL, -0xABCL ]
+test_ulong  = [ 128uL, 0xDEFuL ]
+test_binary = [ 0110b, -0110b ]
+
+test_double = [ 123.456, -123.456 ]
+test_float  = [ 50.25f, -50.25f ]
 
 test_string = "hello world"
 
+test_inline = { test = "string index 0 = test"; inline = "string index 1 = inline"; }
+
+test_empty_array  = []
+test_empty_scope  = {}
+
 "Test array" : [
-    [ "hello", "world" ],
     { description = "this is a totally anonymous scope, with no name whatsoever." },
     
-    [3]: "skipping #2",
+    [3]: "skipping a couple indices",
+    [0x04]: "defining #4 as explicit hexadecimal!",
     
-    "this should be #4",
-    
-    32, 64, 128, 256, 512,
+    "this should be #5",
+
+    6,
 ]
 
 "Test scope" : {
     description = "this is a test scope"
     test_array = [
-        "nested array #1" : [ 
-            "nested array #2" : [
-                [ "a deeply nested array" ],
+        "hello world!" : [ 
+            "you're now entering a \"deeply\" nested array..." : [
+                [ "enjoy the ride ;)" ],
             ],
         ],
     ]
 }
-
-test_inline = { test = "string index 0 = test"; inline = "string index 1 = inline"; }
