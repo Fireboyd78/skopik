@@ -71,7 +71,7 @@ namespace Skopik
                 m_line++;
 
                 // split them up into the token buffer and reset the index
-                m_tokenBuffer = line.SplitTokensNew();
+                m_tokenBuffer = line.SplitTokens();
                 m_tokenIndex = 0;
 
                 // return number of tokens brought in

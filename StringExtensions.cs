@@ -51,40 +51,8 @@ namespace Skopik
 
             return @this;
         }
-
+            
         public static string[] SplitTokens(this string @this)
-        {
-            var values = new List<String>();
-
-            var start = 0;
-            var length = 0;
-
-            for (int i = 0; i < @this.Length; i++)
-            {
-                var c = @this[i];
-                var flags = CharUtils.GetCharFlags(c);
-
-                if ((flags & CharacterTypeFlags.Null) != 0)
-                    break;
-
-                if ((flags & CharacterTypeFlags.TabOrWhitespace) != 0)
-                {
-                    if (length > 0)
-                        values.Add(@this.Substring(start, length));
-
-                    start = (i + 1); // "ABC|  DEF" -> "ABC | DEF" -> "ABC |DEF"
-                    length = 0;
-                }
-                else
-                {
-                    length++;
-                }
-            }
-
-            return values.ToArray();
-        }
-
-        public static string[] SplitTokensNew(this string @this)
         {
             var values = new List<String>();
 
