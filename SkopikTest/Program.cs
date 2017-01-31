@@ -20,7 +20,7 @@ namespace SkopikTest
         static void Main(string[] args)
         {
             var timer = new Stopwatch();
-            var testFilename = Path.Combine(Environment.CurrentDirectory, "test.skop");
+            var testFilename = (args.Length == 1) ? args[0] : Path.Combine(Environment.CurrentDirectory, "test.skop");
 
             WriteLog($"Running tests on file: {testFilename}");
 
@@ -31,7 +31,7 @@ namespace SkopikTest
             }
 
             // how many times to parse it
-            var nLoops = 5000;
+            var nLoops = (args.Length == 2) ? int.Parse(args[1]) : 5000;
 
             timer.Start();
             for (int v = 0; v < nLoops; v++)
