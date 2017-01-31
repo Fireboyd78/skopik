@@ -83,7 +83,7 @@ namespace Skopik
 
                 switch (i)
                 {
-                case '"': case '\'':
+                case '"':
                     type |= (int)CharacterTypeFlags.Quote;
                     break;
 
