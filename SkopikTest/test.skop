@@ -1,4 +1,10 @@
-﻿test_null
+﻿test_empty
+test_empty_array  = []
+test_empty_scope  = {}
+
+test_null   = null
+
+test_bool   = [ true, false ]
 
 test_int    = [ 32, -32, 0x12345, -0x12345 ]
 test_uint   = [ 64u, 0xFFu ]
@@ -12,9 +18,6 @@ test_float  = [ 50.25f, -50.25f ]
 test_string = "hello world"
 
 test_inline = { test = "string index 0 = test"; inline = "string index 1 = inline"; }
-
-test_empty_array  = []
-test_empty_scope  = {}
 
 "Test array" : [
     { description = "this is a totally anonymous scope, with no name whatsoever." },
