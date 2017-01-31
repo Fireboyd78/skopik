@@ -13,8 +13,7 @@ namespace Skopik
         
         internal static readonly string[] Keywords = { "true", "false", "null" };
 
-        internal static readonly string[] CommentLineKeys = { "//" };
-
+        internal static readonly string CommentLineKey = "//";
         internal static readonly string CommentBlockOpenKey = "/*";
         internal static readonly string CommentBlockCloseKey = "*/";
 
@@ -182,10 +181,14 @@ namespace Skopik
 
         internal static SkopikDataType GetNumberDataType(string value)
         {
+            if (value.Length < 1)
+                return SkopikDataType.None;
+
             var strIndex = 0;
 
             var isNegative = false;
             var isHex = false;
+
             var hasExponent = false;
             var hasDigit = false;
             var hasSeparator = false; // floats
@@ -197,12 +200,14 @@ namespace Skopik
             {
                 strIndex += 2;
                 isHex = true;
+
+                if (strIndex == value.Length)
+                    throw new InvalidOperationException($"Malformed hexadecimal number data: '{value}'");
             }
-
-            var strVal = value.Substring(strIndex);
-
-            foreach (var c in strVal)
+            
+            for (int i = strIndex; i < value.Length; i++)
             {
+                var c = value[i];
                 var flags = CharUtils.GetCharFlags(c);
 
                 if ((flags & CharacterTypeFlags.Digit) != 0)
@@ -356,15 +361,16 @@ namespace Skopik
 
         internal static bool IsCommentLine(string value)
         {
-            for (int i = 0; i < CommentLineKeys.Length; i++)
-            {
-                var k = CommentLineKeys[i];
+            if (value.Length < CommentLineKey.Length)
+                return false;
 
-                if (value.StartsWith(k))
-                    return true;
+            for (int i = 0; i < CommentLineKey.Length; i++)
+            {
+                if (value[i] != CommentLineKey[i])
+                    return false;
             }
 
-            return false;
+            return true;
         }
 
         internal static bool IsCommentBlock(string value, bool isOpen)
@@ -377,17 +383,26 @@ namespace Skopik
 
         internal static bool IsNegativeNumber(string value)
         {
-            return value.StartsWith("-");
+            return ((value.Length > 1) && (value[0] == '-'));
         }
         
         internal static bool IsHexadecimalNumber(string value)
         {
+            if (value.Length < HexadecimalPrefix.Length)
+                return false;
+
             var strIndex = 0;
 
             if (IsNegativeNumber(value))
                 ++strIndex;
 
-            return value.Substring(strIndex).StartsWith(HexadecimalPrefix);
+            for (int i = 0; i < HexadecimalPrefix.Length; i++)
+            {
+                if (value[strIndex + i] != HexadecimalPrefix[i])
+                    return false;
+            }
+
+            return true;
         }
 
         internal static bool IsNumberValue(SkopikDataType dataType)

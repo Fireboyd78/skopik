@@ -314,8 +314,14 @@ namespace Skopik
             {
                 var token = Reader.ReadToken();
 
-                if (String.IsNullOrEmpty(token) || Skopik.IsCommentLine(token))
+                if (String.IsNullOrEmpty(token))
                     continue;
+
+                if (Skopik.IsCommentLine(token))
+                {
+                    Reader.NextLine();
+                    continue;
+                }
 
                 SkopikObjectType obj = null;
 
@@ -325,9 +331,7 @@ namespace Skopik
                 // explicit indice?
                 if (Skopik.IsOpeningBrace(token))
                 {
-                    var braceIndex = Reader.FindNextPattern(new[] { "]", ":" });
-
-                    if (braceIndex != -1)
+                    if (Reader.FindNextPattern(new[] { "]", ":" }) != -1)
                     {
                         var nextToken = Reader.ReadToken();
                         var dataType = Skopik.GetNumberDataType(nextToken);
@@ -336,8 +340,6 @@ namespace Skopik
 
                         if (dataType != SkopikDataType.Integer32)
                             throw new InvalidOperationException($"ReadArray() -- invalid explicit indice definition on line {Reader.CurrentLine}.");
-                        if (Reader.TokenIndex != braceIndex)
-                            throw new InvalidOperationException($"ReadArray() -- something went horribly wrong on line {Reader.CurrentLine}!");
 
                         var isHex = Skopik.IsHexadecimalNumber(nextToken);
 
@@ -429,8 +431,14 @@ namespace Skopik
             {
                 var token = Reader.ReadToken();
 
-                if (String.IsNullOrEmpty(token) || Skopik.IsCommentLine(token))
+                if (String.IsNullOrEmpty(token))
                     continue;
+
+                if (Skopik.IsCommentLine(token))
+                {
+                    Reader.NextLine();
+                    continue;
+                }
 
                 SkopikObjectType obj = null;
 

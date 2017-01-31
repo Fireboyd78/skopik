@@ -152,6 +152,11 @@ namespace Skopik
             return GetToken(m_tokenIndex);
         }
 
+        public string PeekToken(int offset)
+        {
+            return GetToken(m_tokenIndex + offset);
+        }
+
         public bool Seek(int offset)
         {
             m_tokenIndex += offset;
