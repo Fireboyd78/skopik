@@ -8,31 +8,86 @@ namespace Skopik
     using ArrayDataValue = List<SkopikObjectType>;
     using ScopeDataValue = Dictionary<string, SkopikObjectType>;
 
-    public enum SkopikDataType
+    public enum SkopikDataType : int
     {
-        Invalid         = -1,
-
-        Null,
-
-        Scope,
-        Array,
-
-        Boolean,
+        // not a skopik data type
+        // does not necessarily mean it's invalid
+        None,
         
-        Integer32,
-        Integer64,
-
-        UInteger32,
-        UInteger64,
+        /*
+            Object types
+        */
         
-        Float,
-        Double,
+        Null            = (1 << 0),
+        Reference       = (1 << 1),
 
-        String,
+        Scope           = (1 << 2),
+        Array           = (1 << 3),
 
-        Reference,
+        String          = (1 << 4),
 
-        Reserved        = 200,
+        /*
+            Special types
+        */
+        Keyword         = (1 << 5),
+
+        Operator        = (1 << 6),
+        Reserved        = (1 << 7),
+
+        /*
+            Composite operators
+        */
+
+        OpStmt          = (1 << 8) | Operator,
+        OpStmtBlock     = (1 << 9) | Operator,
+
+        OpBlockStmtEnd  = (1 << 10) | Operator,
+        OpBlockOpen     = (1 << 11) | Operator,
+        OpBlockClose    = (1 << 12) | Operator,
+
+        OpScopeStmtEnd  = OpBlockStmtEnd | Scope,
+        OpScopeOpen     = OpBlockOpen | Scope,
+        OpScopeClose    = OpBlockClose | Scope,
+
+        OpArrayStmtEnd  = OpBlockStmtEnd | Array,
+        OpArrayOpen     = OpBlockOpen | Array,
+        OpArrayClose    = OpBlockClose | Array,
+        
+        /*
+            Number types
+        */
+
+        Boolean     = (1 << 16),
+
+        Integer     = (1 << 17),
+
+        Float       = (1 << 18),
+        Double      = (1 << 19),
+
+        /*
+            Number flags
+        */
+
+        Signed      = (1 << 20),
+        Unsigned    = (1 << 21),
+
+        BitField    = (1 << 22),
+
+        Long        = (1 << 23),
+
+        NumberFlagMask = (Signed | Unsigned | BitField | Long),
+        
+        /*
+            Composite number types
+        */
+
+        Binary      = Integer | BitField,
+
+        Integer32   = Integer | Signed,
+        Integer64   = Integer | Signed | Long,
+
+        UInteger32  = Integer | Unsigned,
+        UInteger64  = Integer | Unsigned | Long,
     }
 
     public abstract class SkopikObjectType
@@ -182,7 +237,7 @@ namespace Skopik
             Value = parseVal;
         }
     }
-
+    
     public enum SkopikIntegerDisplayType
     {
         /// <summary>
@@ -205,7 +260,7 @@ namespace Skopik
     {
         public override SkopikDataType DataType
         {
-            get { return SkopikDataType.Invalid; }
+            get { return SkopikDataType.None; }
         }
 
         /// <summary>
@@ -236,12 +291,6 @@ namespace Skopik
         {
             DataValue = value;
         }
-
-        public SkopikInteger32Type(string value)
-        {
-            var parseVal = int.Parse(value);
-            DataValue = parseVal;
-        }
     }
 
     public class SkopikUInteger32Type : SkopikIntegerBaseType
@@ -262,10 +311,9 @@ namespace Skopik
             DataValue = default(uint);
         }
 
-        public SkopikUInteger32Type(string value)
+        public SkopikUInteger32Type(uint value)
         {
-            var parseVal = uint.Parse(value);
-            DataValue = parseVal;
+            DataValue = value;
         }
     }
 
@@ -291,12 +339,6 @@ namespace Skopik
         {
             DataValue = value;
         }
-
-        public SkopikInteger64Type(string value)
-        {
-            var parseVal = long.Parse(value);
-            DataValue = parseVal;
-        }
     }
 
     public class SkopikUInteger64Type : SkopikIntegerBaseType
@@ -320,12 +362,6 @@ namespace Skopik
         public SkopikUInteger64Type(ulong value)
         {
             DataValue = value;
-        }
-
-        public SkopikUInteger64Type(string value)
-        {
-            var parseVal = ulong.Parse(value);
-            DataValue = parseVal;
         }
     }
 
@@ -351,12 +387,6 @@ namespace Skopik
         {
             DataValue = value;
         }
-
-        public SkopikFloatType(string value)
-        {
-            var parseVal = float.Parse(value);
-            DataValue = parseVal;
-        }
     }
 
     public class SkopikDoubleType : SkopikObjectType
@@ -380,12 +410,6 @@ namespace Skopik
         public SkopikDoubleType(double value)
         {
             DataValue = value;
-        }
-
-        public SkopikDoubleType(string value)
-        {
-            var parseVal = double.Parse(value);
-            DataValue = parseVal;
         }
     }
 

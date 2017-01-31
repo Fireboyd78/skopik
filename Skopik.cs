@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -7,6 +8,9 @@ namespace Skopik
 {
     internal static class Skopik
     {
+        private static bool m_lookupReady = false;
+        private static int[] m_lookup = new int[128];
+        
         internal static readonly string[] Keywords = { "true", "false", "null" };
 
         internal static readonly string[] CommentLineKeys = { "//" };
@@ -21,8 +25,9 @@ namespace Skopik
         internal static readonly char[] OperatorKeys = { '@', '"', '\'' };
         internal static readonly char[] SeparatorKeys = { ',', ';' };
 
-        internal static readonly string[] PrefixKeys = { "0x" };
-        internal static readonly string[] SuffixKeys = { "b", "d", "f", "u", "U", "L", "uL" };
+        internal static readonly char[] SuffixKeys = { 'b', 'd', 'f', 'u', 'U', 'L' };
+
+        internal static readonly string HexadecimalPrefix = "0x";
 
         internal static readonly SkopikDataType[] WordLookup = {
             SkopikDataType.Boolean,     // 'true'
@@ -36,75 +41,129 @@ namespace Skopik
         };
 
         internal static readonly SkopikDataType[] OperatorLookup = {
-            SkopikDataType.Reserved,    // '@'
+            SkopikDataType.Keyword,     // '@'
             SkopikDataType.String,      // ' " '
             SkopikDataType.String,      // ' ' '
         };
 
-        internal static readonly SkopikDataType[] SuffixLookup = {
-            SkopikDataType.Integer32,   // 'b'
-            SkopikDataType.Double,      // 'd'
-            SkopikDataType.Float,       // 'f'
-            SkopikDataType.UInteger32,  // 'u'
-            SkopikDataType.UInteger32,  // 'U'
-            SkopikDataType.Integer64,   // 'L'
-            SkopikDataType.UInteger64   // 'uL'
+        internal static readonly SkopikDataType[] SeparatorLookup = {
+            SkopikDataType.Array,       // ','
+            SkopikDataType.Scope,       // ';'
         };
 
-        internal static string StripDataTypeSuffix(string value)
+        internal static readonly SkopikDataType[] SuffixLookup = {
+            SkopikDataType.Binary,      // 'b'
+            SkopikDataType.Double,      // 'd'
+            SkopikDataType.Float,       // 'f'
+            SkopikDataType.Unsigned,    // 'u'
+            SkopikDataType.Unsigned,    // 'U'
+            SkopikDataType.Long,        // 'L'
+        };
+        
+        internal static void MapLookupTypes()
         {
-            var val = new StringBuilder(value.Length);
+            for (int i = 0; i < ControlKeys.Length; i++)
+            {
+                var type = (int)(((i % 2) == 0) ? SkopikDataType.OpBlockOpen : SkopikDataType.OpBlockClose);
 
+                // combine into one operator :)
+                type |= (int)ControlLookup[(i > 1) ? 1 : 0];
+
+                m_lookup[ControlKeys[i]] = type;
+            }
+
+            for (int i = 0; i < OperatorKeys.Length; i++)
+                m_lookup[OperatorKeys[i]] = (int)OperatorLookup[i];
+
+            for (int i = 0; i < SeparatorKeys.Length; i++)
+                m_lookup[SeparatorKeys[i]] = (int)(SkopikDataType.OpBlockStmtEnd | SeparatorLookup[i]);
+
+            for (int i = 0; i < SuffixKeys.Length; i++)
+                m_lookup[SuffixKeys[i]] = (int)SuffixLookup[i];
+
+            m_lookup[AssignmentKey] = (int)SkopikDataType.OpStmt;
+            m_lookup[ScopeBlockKey] = (int)SkopikDataType.OpStmtBlock;
+        }
+
+        // TODO: give this a datatype to work with
+        internal static string SanitizeNumber(string value, bool isHex)
+        {
+            var length = 0;
+            
             foreach (var c in value)
             {
-                // eww
-                if (!CharUtils.HasCharFlags(c, CharacterTypeFlags.Digit | CharacterTypeFlags.Control) && SuffixKeys.Contains(c.ToString()))
+                var flags = CharUtils.GetCharFlags(c);
+
+                // don't allow decimals/negative hexadecimal numbers
+                // (negative hex numbers need to be processed at another point)
+                if (!isHex)
+                {
+                    if (c == '.' || c == '-')
+                    {
+                        ++length;
+                        continue;
+                    }
+                }
+                if ((flags & CharacterTypeFlags.Digit) != 0)
+                {
+                    ++length;
                     continue;
+                }
+                if ((flags & CharacterTypeFlags.Letter) != 0)
+                {
+                    // ABCDEF or abcdef?
+                    if (isHex && ((c & ~0x67) == 0))
+                    {
+                        ++length;
+                        continue;
+                    }
 
-                val.Append(c);
+                    var type = GetDataType(c);
+
+                    if (type != SkopikDataType.None)
+                    {
+                        // first suffix character, we can safely break
+                        break;
+                    }
+                }
+
+                // can't sanitize the string
+                // reset the length and stop
+                length = 0;
+                break;
             }
-
-            return val.ToString();
+            return (length > 0 ) ? value.Substring(0, length) : String.Empty;
         }
-
-        internal static SkopikDataType GetDataTypeFromSuffix(string value)
+        
+        internal static SkopikDataType GetDataType(char value)
         {
-            for (int i = 0; i < SuffixKeys.Length; i++)
+            if (!m_lookupReady)
             {
-                if (value.EndsWith(SuffixKeys[i]))
-                    return SuffixLookup[i];
+                MapLookupTypes();
+                m_lookupReady = true;
             }
 
-            return SkopikDataType.Invalid;
+            return (SkopikDataType)m_lookup[value];
         }
 
-        internal static SkopikDataType GetOperatorDataType(string value)
+        internal static SkopikDataType GetDataType(string value)
         {
-            for (int i = 0; i < OperatorKeys.Length; i++)
-            {
-                var op = OperatorKeys[i];
-
-                if (value[0] == op)
-                    return OperatorLookup[i];
-            }
-
-            return SkopikDataType.Invalid;
+            return GetDataType(value[0]);
         }
-
-        internal static SkopikDataType GetControlDataType(string value)
+        
+        internal static bool IsDataType(char value, SkopikDataType dataType)
         {
-            for (int i = 0; i < ControlKeys.Length; i += 2)
-            {
-                var openTag = ControlKeys[i];
-                var closeTag = ControlKeys[i + 1];
+            var type = (int)GetDataType(value);
+            var checkType = (int)dataType;
 
-                if (value[0] == openTag || value[0] == closeTag)
-                    return ControlLookup[(i > 1) ? 1 : 0]; // oh god the horror
-            }
-
-            return SkopikDataType.Invalid;
+            return ((type & checkType) == checkType);
         }
 
+        internal static bool IsDataType(string value, SkopikDataType dataType)
+        {
+            return IsDataType(value[0], dataType);
+        }
+        
         internal static SkopikDataType GetWordDataType(string value)
         {
             for (int i = 0; i < Keywords.Length; i++)
@@ -115,151 +174,177 @@ namespace Skopik
                     return WordLookup[i];
             }
 
-            return SkopikDataType.Invalid;
+            return SkopikDataType.None;
         }
 
         internal static SkopikDataType GetNumberDataType(string value)
         {
-            var numberType = GetDataTypeFromSuffix(value);
+            var strIndex = 0;
 
-            if (numberType == SkopikDataType.Invalid)
+            var isNegative = false;
+            var isHex = false;
+            var hasExponent = false;
+            var hasDigit = false;
+            var hasSeparator = false; // floats
+
+            var numberType = SkopikDataType.None;
+            var suffixType = SkopikDataType.None;
+
+            if (IsHexadecimalNumber(value))
             {
-                var isNegative = false;
-                var hasExponent = false;
-                var hasDigit = false;
-                var hasSeparator = false; // floats
+                strIndex += 2;
+                isHex = true;
+            }
 
-                foreach (var c in value)
+            var strVal = value.Substring(strIndex);
+
+            foreach (var c in strVal)
+            {
+                var flags = CharUtils.GetCharFlags(c);
+
+                if ((flags & CharacterTypeFlags.Digit) != 0)
                 {
-                    if (CharUtils.HasCharFlags(c, CharacterTypeFlags.Digit))
-                    {
-                        hasDigit = true;
-                        continue;
-                    }
-                    if ((c == '.') || (c == ','))
-                    {
-                        if (!hasDigit || hasSeparator)
-                            Console.WriteLine($"-- Malformed number data: '{value}'");
+                    hasDigit = true;
+                }
+                else if ((flags & CharacterTypeFlags.Letter) != 0)
+                {
+                    suffixType |= GetDataType(c);
 
-                        hasSeparator = true;
-                        continue;
-                    }
-                    if ((c == 'e') || (c == 'E'))
+                    if (suffixType == SkopikDataType.None)
                     {
                         // check for exponential float
-                        if (hasExponent || (!hasDigit || (!hasDigit && !hasSeparator)))
-                            Console.WriteLine($"-- Malformed number data: '{value}'");
+                        if (!isHex && ((c & ~0x65) == 0))
+                        {
+                            if (hasExponent || (!hasDigit || (!hasDigit && !hasSeparator)))
+                                throw new InvalidOperationException($"Malformed number data: '{value}'");
 
-                        hasExponent = true;
-                        continue;
+                            hasExponent = true;
+                        }
                     }
-                    if (c == '-')
+                }
+                else
+                {
+                    if (c == '.')
+                    {
+                        if (!hasDigit || hasSeparator)
+                            throw new InvalidOperationException($"Malformed number data: '{value}'");
+
+                        hasSeparator = true;
+                    }
+                    else if (c == '-')
                     {
                         if (hasExponent)
                         {
                             if (!hasDigit || (!hasDigit && !hasSeparator))
-                                Console.WriteLine($"-- Malformed number data: '{value}'");
+                                throw new InvalidOperationException($"Malformed number data: '{value}'");
 
                             // exponential float
                             // just continue normally
-                            continue;
                         }
                         else
                         {
                             if (isNegative || hasDigit || hasSeparator)
-                                Console.WriteLine($"-- Malformed number data: '{value}'");
+                                throw new InvalidOperationException($"Malformed number data: '{value}'");
 
                             // negative number
                             isNegative = true;
-                            continue;
                         }
                     }
                 }
-
-                if (hasDigit)
-                {
-                    // NOTE: Doubles are implicitly assumed for decimal values (e.g. 1.0 is a double, NOT a float)
-                    if (hasSeparator)
-                    {
-                        if (hasExponent)
-                            Console.WriteLine($"-- Successfully detected an exponential decimal: '{value}'");
-
-                        numberType = SkopikDataType.Double;
-                    }
-                    else
-                    {
-                        // TODO: Return UInt32 for non-negative numbers?
-                        numberType = SkopikDataType.Integer32;
-                    }
-                }
             }
 
-            // can still be invalid
+            // figure out the number type
+            if (suffixType == SkopikDataType.None)
+            {
+                // setup the default value if we couldn't figure it out above
+                if (hasSeparator)
+                {
+                    if (hasExponent)
+                        Debug.WriteLine($"Successfully detected an exponential decimal: '{value}'");
+
+                    numberType |= SkopikDataType.Double;
+                }
+                else
+                {
+                    numberType |= SkopikDataType.Integer32;
+                }
+            }
+            else
+            {
+                if ((suffixType & (SkopikDataType.Float | SkopikDataType.Double)) != 0)
+                    numberType |= (suffixType & (SkopikDataType.Float | SkopikDataType.Double));
+
+                if ((suffixType & SkopikDataType.NumberFlagMask) != 0)
+                {
+                    numberType |= SkopikDataType.Integer;
+
+                    // binary data has no sign
+                    if ((suffixType & SkopikDataType.Binary) == 0)
+                    {
+                        // signed?
+                        if ((suffixType & SkopikDataType.Unsigned) == 0)
+                            numberType |= SkopikDataType.Signed;
+                    }
+                    
+                    numberType |= (suffixType & (SkopikDataType.NumberFlagMask));
+                }
+            }
+            
+            // can still be invalid!
             return numberType;
         }
 
-        internal static SkopikDataType GetDataType(string value)
+        internal static SkopikDataType GetAnyDataType(string value)
         {
-            // check operators first
-            var dataType = GetOperatorDataType(value);
+            var dataType = GetDataType(value);
 
-            // check controls next
-            if (dataType == SkopikDataType.Invalid)
+            if (dataType == SkopikDataType.None)
             {
-                dataType = GetControlDataType(value);
+                // word data?
+                dataType = GetWordDataType(value);
 
-                // check word types next
-                if (dataType == SkopikDataType.Invalid)
-                    dataType = GetWordDataType(value);
-
-                // check number types
-                if (dataType == SkopikDataType.Invalid)
+                // number data?
+                if (dataType == SkopikDataType.None)
                     dataType = GetNumberDataType(value);
             }
 
-            // may be invalid
+            // may still be invalid
             return dataType;
         }
 
         internal static bool IsAssignmentOperator(string value)
         {
-            return (value[0] == AssignmentKey);
+            return IsDataType(value, SkopikDataType.OpStmt);
         }
 
         internal static bool IsScopeBlockOperator(string value)
         {
-            return (value[0] == ScopeBlockKey);
+            return IsDataType(value, SkopikDataType.OpStmtBlock);
         }
 
-        internal static bool IsSeparator(string value, bool inArray)
+        internal static bool IsEndStatementOperator(string value)
         {
-            return (value[0] == ((inArray) ? SeparatorKeys[0] : SeparatorKeys[1]));
+            return IsDataType(value, SkopikDataType.OpBlockStmtEnd);
+        }
+
+        internal static bool IsArraySeparator(string value)
+        {
+            return IsDataType(value, SkopikDataType.OpArrayStmtEnd);
+        }
+
+        internal static bool IsScopeSeparator(string value)
+        {
+            return IsDataType(value, SkopikDataType.OpScopeStmtEnd);
         }
 
         internal static bool IsOpeningBrace(string value)
         {
-            for (int i = 0; i < ControlKeys.Length; i += 2)
-            {
-                var k = ControlKeys[i];
-
-                if (value[0] == k)
-                    return true;
-            }
-
-            return false;
+            return IsDataType(value, SkopikDataType.OpBlockOpen);
         }
 
         internal static bool IsClosingBrace(string value)
         {
-            for (int i = 0; i < ControlKeys.Length; i += 2)
-            {
-                var k = ControlKeys[i + 1];
-
-                if (value[0] == k)
-                    return true;
-            }
-
-            return false;
+            return IsDataType(value, SkopikDataType.OpBlockClose);
         }
 
         internal static bool IsCommentLine(string value)
@@ -283,20 +368,29 @@ namespace Skopik
             return false;
         }
 
+        internal static bool IsNegativeNumber(string value)
+        {
+            return value.StartsWith("-");
+        }
+        
+        internal static bool IsHexadecimalNumber(string value)
+        {
+            var strIndex = 0;
+
+            if (IsNegativeNumber(value))
+                ++strIndex;
+
+            return value.Substring(strIndex).StartsWith(HexadecimalPrefix);
+        }
+
         internal static bool IsNumberValue(SkopikDataType dataType)
         {
-            switch (dataType)
-            {
-            case SkopikDataType.Integer32:
-            case SkopikDataType.Integer64:
-            case SkopikDataType.UInteger64:
-            case SkopikDataType.UInteger32:
-            case SkopikDataType.Float:
-            case SkopikDataType.Double:
-                return true;
-            }
+            return ((dataType & SkopikDataType.Integer) != 0);
+        }
 
-            return false;
+        internal static bool IsDecimalNumberValue(SkopikDataType dataType)
+        {
+            return ((dataType & (SkopikDataType.Float | SkopikDataType.Double)) != 0);
         }
     }
 }
