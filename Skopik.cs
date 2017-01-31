@@ -170,7 +170,10 @@ namespace Skopik
             {
                 var k = Keywords[i];
 
-                if (value.StartsWith(k))
+                if (value.Length != k.Length)
+                    continue;
+
+                if (value.Equals(k, StringComparison.InvariantCultureIgnoreCase))
                     return WordLookup[i];
             }
 
@@ -296,17 +299,21 @@ namespace Skopik
 
         internal static SkopikDataType GetAnyDataType(string value)
         {
-            var dataType = GetDataType(value);
+            var dataType = SkopikDataType.None;
 
-            if (dataType == SkopikDataType.None)
+            if (value.Length != 1)
             {
                 // word data?
                 dataType = GetWordDataType(value);
-
-                // number data?
-                if (dataType == SkopikDataType.None)
-                    dataType = GetNumberDataType(value);
             }
+
+            // control flow data?
+            if (dataType == SkopikDataType.None)
+                dataType = GetDataType(value[0]);
+
+            // number data?
+            if (dataType == SkopikDataType.None)
+                dataType = GetNumberDataType(value);
 
             // may still be invalid
             return dataType;
