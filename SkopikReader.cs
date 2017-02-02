@@ -12,13 +12,13 @@ namespace Skopik
     internal class SkopikReader : IDisposable
     {
         protected TokenReader Reader { get; }
-
+        
         public void Dispose()
         {
             if (Reader != null)
                 Reader.Dispose();
         }
-
+        
         public SkopikObjectType ReadObject(SkopikBaseScopeType parent)
         {
             if (parent == null)
@@ -223,7 +223,7 @@ namespace Skopik
             // we couldn't determine the data type, but let's not break the parser!
             return new SkopikNullType();
         }
-
+        
         public SkopikObjectType ReadStatement(SkopikBaseScopeType parent)
         {
             if (parent == null)
@@ -288,7 +288,7 @@ namespace Skopik
                     // move to next statement
                     if (Skopik.IsScopeSeparator(nextToken))
                         Reader.PopToken();
-                    if (Skopik.IsCommentLine(nextToken))
+                    if (Tokenizer.IsCommentLine(nextToken))
                         Reader.NextLine();
                 }
             }
@@ -301,7 +301,7 @@ namespace Skopik
 
             return obj;
         }
-
+        
         public SkopikArrayType ReadArray(string arrayName = "")
         {
             var array = new SkopikArrayType() {
@@ -316,13 +316,7 @@ namespace Skopik
 
                 if (String.IsNullOrEmpty(token))
                     continue;
-
-                if (Skopik.IsCommentLine(token))
-                {
-                    Reader.NextLine();
-                    continue;
-                }
-
+                
                 SkopikObjectType obj = null;
 
                 var index = (maxIndex + 1);
@@ -433,12 +427,6 @@ namespace Skopik
 
                 if (String.IsNullOrEmpty(token))
                     continue;
-
-                if (Skopik.IsCommentLine(token))
-                {
-                    Reader.NextLine();
-                    continue;
-                }
 
                 SkopikObjectType obj = null;
 

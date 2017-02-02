@@ -7,6 +7,219 @@ using System.Text;
 
 namespace Skopik
 {
+    internal static class Tokenizer
+    {
+        public static readonly string CommentLineKey = "//";
+
+        public static readonly string[] CommentBlockKeys = { "/*", "*/" };
+        
+        public static bool IsCommentLine(string value)
+        {
+            if (value == null)
+                throw new ArgumentNullException(nameof(value), "Argument cannot be null.");
+
+            if (value.Length < CommentLineKey.Length)
+                return false;
+
+            for (int i = 0; i < CommentLineKey.Length; i++)
+            {
+                if (value[i] != CommentLineKey[i])
+                    return false;
+            }
+            return true;
+        }
+        
+        public static int IsCommentBlock(string value)
+        {
+            if (value == null)
+                throw new ArgumentNullException(nameof(value), "Argument cannot be null.");
+
+            var strLen = value.Length;
+
+            for (int i = 0; i < CommentBlockKeys.Length; i++)
+            {
+                var cb = CommentBlockKeys[i];
+                
+                if (strLen < cb.Length)
+                    continue;
+
+                var match = true;
+
+                for (int ii = 0; ii < cb.Length; ii++)
+                {
+                    if (value[ii] != cb[ii])
+                        match = false;
+                }
+
+                if (match)
+                    return i;
+            }
+
+            return -1;
+        }
+        
+        public static string[] SplitTokens(string str)
+        {
+            if (str == null)
+                throw new ArgumentNullException(nameof(str), "Argument cannot be null.");
+            
+            if (str.Length < 1)
+                return new[] { str };
+
+            var values = new List<String>(32);
+
+            var start = 0;
+            var length = 0;
+
+            var stringOpen = false;
+            var stringEscaped = false;
+
+            var commentOpen = false;
+
+            for (int i = 0; i < str.Length; i++)
+            {
+                var c = str[i];
+                var flags = CharUtils.GetCharFlags(c);
+
+                // break on null
+                if ((flags & CharacterTypeFlags.Null) != 0)
+                    break;
+
+                if ((flags & CharacterTypeFlags.TabOrWhitespace) != 0)
+                {
+                    // process tabs/whitespace outside of strings/comments
+                    if (!stringOpen)
+                    {
+                        if (!commentOpen)
+                        {
+                            if (length > 0)
+                                values.Add(str.Substring(start, length));
+
+                            start = (i + 1); // "ABC|  DEF" -> "ABC | DEF" -> "ABC |DEF"
+                            length = 0;
+                        }
+                        continue;
+                    }
+                }
+
+                // check for inline comments
+                if (((flags & CharacterTypeFlags.Alphanumerical) == 0) && ((i + 2) < str.Length))
+                {
+                    var tok = str.Substring(i, 2);
+                    var cbType = IsCommentBlock(tok);
+
+                    var isCommentLine = false;
+                    var isCommentBlock = false;
+
+                    switch (cbType)
+                    {
+                    case -1:
+                        {
+                            if (!commentOpen && IsCommentLine(tok))
+                                isCommentLine = true;
+                        } break;
+                    case 0:
+                        {
+                            isCommentBlock = true;
+                            commentOpen = true;
+                        } break;
+                    case 1:
+                        {
+                            isCommentBlock = true;
+                            commentOpen = false;
+                        } break;
+                    }
+
+                    if (isCommentLine)
+                        break;
+
+                    if (isCommentBlock)
+                    {
+                        // add the token separately
+                        values.Add(tok);
+
+                        // move ahead 2 spaces
+                        i += 2;
+
+                        start = i;
+                        length = 0;
+
+                        continue;
+                    }
+                }
+
+                if (commentOpen)
+                    continue;
+                
+                if ((flags & CharacterTypeFlags.ExtendedOperators) != 0)
+                {
+                    if (!stringOpen)
+                    {
+                        if (length > 0)
+                            values.Add(str.Substring(start, length));
+
+                        values.Add(c.ToString());
+
+                        start = (i + 1);
+                        length = 0;
+
+                        continue;
+                    }
+                }
+
+                // increase string length
+                ++length;
+
+                if ((flags & CharacterTypeFlags.Quote) != 0)
+                {
+                    if (stringOpen)
+                    {
+                        if (stringEscaped)
+                        {
+                            stringEscaped = false;
+                        }
+                        else
+                        {
+                            // complete the string (include last quote)
+                            if (length > 0)
+                                values.Add(str.Substring(start, length + 1));
+
+                            start = (i + 1); // "ABC|" -> "ABC"|
+                            length = 0;
+
+                            stringOpen = false;
+                        }
+                    }
+                    else
+                    {
+                        start = i; // |"ABC"
+                        length = 0;
+
+                        stringOpen = true;
+                    }
+                }
+                else if (stringEscaped)
+                {
+                    // not an escape sequence
+                    stringEscaped = false;
+                    continue;
+                }
+
+                if (stringOpen && (c == '\\'))
+                {
+                    stringEscaped = true;
+                    continue;
+                }
+            }
+
+            // final add
+            if (length > 0 && !commentOpen)
+                values.Add(str.Substring(start, length));
+
+            return values.ToArray();
+        }
+    }
+
     internal class TokenReader : IDisposable
     {
         private int m_line = 0;
@@ -64,16 +277,23 @@ namespace Skopik
         /// <returns>The number of tokens parsed, otherwise -1 if end of stream reached.</returns>
         protected int ReadInTokens()
         {
-            if (!Reader.EndOfStream)
+            while (!Reader.EndOfStream)
             {
                 // read in the next line of tokens
                 var line = Reader.ReadLine();
-                m_line++;
+                var startLine = ++m_line;
+                
+                if (String.IsNullOrWhiteSpace(line))
+                    continue;
+
+                // read the next line if safe to do so
+                if (Tokenizer.IsCommentLine(line))
+                    continue;
 
                 // split them up into the token buffer and reset the index
-                m_tokenBuffer = line.SplitTokens();
+                m_tokenBuffer = Tokenizer.SplitTokens(line);
                 m_tokenIndex = 0;
-
+                
                 // return number of tokens brought in
                 return m_tokenBuffer.Length;
             }
@@ -117,15 +337,11 @@ namespace Skopik
             
             return GetToken(m_tokenIndex++);
         }
-        
-        /// <summary>
-        /// Reads the next valid token from the buffer and increments the token index.
-        /// </summary>
-        /// <returns>The next valid token from the buffer; otherwise, null.</returns>
-        public string ReadToken()
+
+        private string ReadTokenInternal()
         {
             string token = null;
-            
+
             while (token == null)
             {
                 if (EndOfLine)
@@ -138,6 +354,23 @@ namespace Skopik
                 }
 
                 token = GetToken(m_tokenIndex++);
+            }
+
+            return token;
+        }
+        
+        /// <summary>
+        /// Reads the next valid token from the buffer and increments the token index.
+        /// </summary>
+        /// <returns>The next valid token from the buffer; otherwise, null.</returns>
+        public string ReadToken()
+        {
+            var token = ReadTokenInternal();
+            
+            if (Tokenizer.IsCommentBlock(token) == 0)
+            {
+                if (MatchToken(Tokenizer.CommentBlockKeys[1], Tokenizer.CommentBlockKeys[0]))
+                    token = ReadTokenInternal();
             }
 
             return token;
@@ -228,7 +461,7 @@ namespace Skopik
             var match = false;
             var token = "";
 
-            while (!match && (token = ReadToken()) != null)
+            while (!match && (token = ReadTokenInternal()) != null)
             {
                 if (token == matchToken)
                     match = true;

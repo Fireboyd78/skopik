@@ -19,32 +19,60 @@ namespace SkopikTest
 
         static void Main(string[] args)
         {
-            var timer = new Stopwatch();
-            var testFilename = (args.Length == 1) ? args[0] : Path.Combine(Environment.CurrentDirectory, "test.skop");
-
-            WriteLog($"Running tests on file: {testFilename}");
+            var timer = new Stopwatch(); 
+            var testFilename = (args.Length >= 1) ? args[0] : Path.Combine(Environment.CurrentDirectory, "test.skop");
 
             if (!File.Exists(testFilename))
             {
-                WriteLog("Test file not found, what did you do?!");
+                WriteLog($"Error -- file '{testFilename}' does not exist!");
                 return;
             }
 
             // how many times to parse it
             var nLoops = (args.Length == 2) ? int.Parse(args[1]) : 5000;
 
+            var test1Elapsed = 0L;
+            
+            WriteLog($"Running {nLoops:N0} tests on '{Path.GetFullPath(testFilename)}'...");
+
+            var buffer = File.ReadAllBytes(testFilename);
+            
             timer.Start();
             for (int v = 0; v < nLoops; v++)
             {
-                var skopFile = new SkopikFile(testFilename);
-                skopFile.Parse();
+                if (v == 1)
+                {
+                    test1Elapsed = timer.ElapsedMilliseconds;
+                    WriteLog($"Startup impact: {test1Elapsed}ms");
+
+                    timer.Restart();
+                }
+                
+                var skopData = new SkopikData(buffer);
             }
             timer.Stop();
+            
+            WriteLog("\nResults (+/- startup):");
 
-            var totalTime = timer.ElapsedMilliseconds;
-            var averageTime = (double)totalTime / nLoops;
+            var resultNames = new[] {
+                $"(+):",
+                $"(-):",
+            };
 
-            WriteLog($"Parsed {nLoops:N0} files in {timer.ElapsedMilliseconds}ms (avg: {averageTime:F4}ms).");
+            for (int i = 0; i < 2; i++)
+            {
+                var resultName = resultNames[i];
+
+                var elapsedMilliseconds = timer.ElapsedMilliseconds;
+                var elapsedSeconds = (elapsedMilliseconds / 1000d);
+
+                if (i == 0)
+                    elapsedMilliseconds += test1Elapsed;
+
+                var averageTime = ((double)elapsedMilliseconds / nLoops);
+
+                WriteLog($"  {resultName} {elapsedMilliseconds}ms, average: {averageTime:F4}ms");
+            }
         }
     }
 }

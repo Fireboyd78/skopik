@@ -7,40 +7,22 @@ using System.Text;
 
 namespace Skopik
 {
-    public class SkopikFile
+    public class SkopikData
     {
-        private SkopikScopeType _globalScope;
-
-        public string FileName { get; }
-
-        public SkopikScopeType GlobalScope
-        {
-            get
-            {
-                if (_globalScope == null)
-                    _globalScope = new SkopikScopeType() {
-                        Name = "<global>"
-                    };
-
-                return _globalScope;
-            }
-        }
+        public SkopikScopeType GlobalScope { get; set; }
         
-        public void Parse()
+        public SkopikData()
         {
-            using (var ms = new MemoryStream(File.ReadAllBytes(FileName)))
+        }
+
+        public SkopikData(byte[] buffer)
+        {
+            using (var ms = new MemoryStream(buffer, 0, buffer.Length, false))
             using (var skop = new SkopikReader(ms))
             {
-                skop.ReadNestedScope(GlobalScope, $"<scope::('{Path.GetFileNameWithoutExtension(FileName)}')>");
+                GlobalScope = skop.ReadScope();
+                GlobalScope.Name = "<global>";
             }
-        }
-        
-        public SkopikFile(string fileName)
-        {
-            if (!File.Exists(fileName))
-                throw new InvalidOperationException("Skopik file not found!");
-
-            FileName = fileName;
         }
     }
 }

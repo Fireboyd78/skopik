@@ -358,29 +358,7 @@ namespace Skopik
         {
             return IsDataType(value, SkopikDataType.OpBlockClose);
         }
-
-        internal static bool IsCommentLine(string value)
-        {
-            if (value.Length < CommentLineKey.Length)
-                return false;
-
-            for (int i = 0; i < CommentLineKey.Length; i++)
-            {
-                if (value[i] != CommentLineKey[i])
-                    return false;
-            }
-
-            return true;
-        }
-
-        internal static bool IsCommentBlock(string value, bool isOpen)
-        {
-            if (value.StartsWith((!isOpen) ? CommentBlockOpenKey : CommentBlockOpenKey) || value.EndsWith(CommentBlockCloseKey))
-                return true;
-
-            return false;
-        }
-
+        
         internal static bool IsNegativeNumber(string value)
         {
             return ((value.Length > 1) && (value[0] == '-'));
