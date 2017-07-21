@@ -19,7 +19,7 @@ namespace Skopik
                 Reader.Dispose();
         }
         
-        public SkopikObjectType ReadObject(SkopikBaseScopeType parent)
+        public SkopikObject ReadObject(SkopikScopeBase parent)
         {
             if (parent == null)
                 throw new ArgumentNullException(nameof(parent), "Parent cannot be null.");
@@ -71,17 +71,17 @@ namespace Skopik
                     }
                 }
                 
-                return new SkopikStringType(strValue);
+                return new SkopikString(strValue);
             }
 
             if (dataType == SkopikDataType.Keyword)
                 Debug.WriteLine($"Unknown data @ line {Reader.CurrentLine}: '{token}'");
             
             if (dataType == SkopikDataType.Boolean)
-                return new SkopikBooleanType(token);
+                return new SkopikBoolean(token);
 
             if (dataType == SkopikDataType.Null)
-                return new SkopikNullType();
+                return new SkopikNull();
 
             // anonymous scope/array?
             if (Skopik.IsOpeningBrace(token))
@@ -104,12 +104,12 @@ namespace Skopik
                 case SkopikDataType.Float:
                     {
                         var val = Convert.ToSingle(decimalToken);
-                        return new SkopikFloatType(val);
+                        return new SkopikFloat(val);
                     }
                 case SkopikDataType.Double:
                     {
                         var val = Convert.ToDouble(decimalToken);
-                        return new SkopikDoubleType(val);
+                        return new SkopikDouble(val);
                     }
                 }
             }
@@ -119,7 +119,7 @@ namespace Skopik
                 var isNegative = Skopik.IsNegativeNumber(token);
                 var strIndex = 0;
 
-                SkopikIntegerBaseType number = null;
+                SkopikNumber number = null;
 
                 if ((dataType & SkopikDataType.BitField) != 0)
                 {
@@ -141,15 +141,15 @@ namespace Skopik
                         if (isNegative)
                             val = -val;
 
-                        number = new SkopikInteger32Type(val);
+                        number = new SkopikInteger32(val);
                     }
                     else
                     {
                         var val = Convert.ToUInt32(binaryToken, 2);
-                        number = new SkopikUInteger32Type(val);
+                        number = new SkopikUInteger32(val);
                     }
 
-                    number.DisplayType = SkopikIntegerDisplayType.Binary;
+                    number.NumberType = SkopikNumberType.Binary;
                 }
                 else
                 {
@@ -183,7 +183,7 @@ namespace Skopik
                             if (isHex && isNegative)
                                 val = -val;
 
-                            number = new SkopikInteger32Type(val);
+                            number = new SkopikInteger32(val);
                         }
                         break;
                     case SkopikDataType.Integer64:
@@ -193,19 +193,19 @@ namespace Skopik
                             if (isHex && isNegative)
                                 val = -val;
 
-                            number = new SkopikInteger64Type(val);
+                            number = new SkopikInteger64(val);
                         }
                         break;
                     case SkopikDataType.UInteger32:
                         {
                             var val = Convert.ToUInt32(numberToken, numberBase);
-                            number = new SkopikUInteger32Type(val);
+                            number = new SkopikUInteger32(val);
                         }
                         break;
                     case SkopikDataType.UInteger64:
                         {
                             var val = Convert.ToUInt64(numberToken, numberBase);
-                            number = new SkopikUInteger64Type(val);
+                            number = new SkopikUInteger64(val);
                         }
                         break;
                     }
@@ -214,22 +214,22 @@ namespace Skopik
                         throw new InvalidOperationException($"ReadObject() -- the resulting value for '{token}' on line {Reader.CurrentLine} was null.");
                     
                     if (isHex)
-                        number.DisplayType = SkopikIntegerDisplayType.Hexadecimal;
+                        number.NumberType = SkopikNumberType.Hexadecimal;
                 }
 
                 return number;
             }
 
             // we couldn't determine the data type, but let's not break the parser!
-            return new SkopikNullType();
+            return new SkopikNull();
         }
         
-        public SkopikObjectType ReadStatement(SkopikBaseScopeType parent)
+        public SkopikObject ReadStatement(SkopikScopeBase parent)
         {
             if (parent == null)
                 throw new ArgumentNullException(nameof(parent), "Parent cannot be null.");
 
-            SkopikObjectType obj = new SkopikNullType();
+            SkopikObject obj = new SkopikNull();
 
             var name = Reader.ReadToken();
 
@@ -293,18 +293,18 @@ namespace Skopik
                 }
             }
 
-            if (parent is SkopikScopeType)
+            if (parent is SkopikScope)
             {
                 // add to the parent scope as a variable
-                ((SkopikScopeType)parent).ScopeData.Add(name, obj);
+                ((SkopikScope)parent).ScopeData.Add(name, obj);
             }
 
             return obj;
         }
         
-        public SkopikArrayType ReadArray(string arrayName = "")
+        public SkopikArray ReadArray(string arrayName = "")
         {
-            var array = new SkopikArrayType() {
+            var array = new SkopikArray() {
                 Name = arrayName
             };
 
@@ -317,7 +317,7 @@ namespace Skopik
                 if (String.IsNullOrEmpty(token))
                     continue;
                 
-                SkopikObjectType obj = null;
+                SkopikObject obj = null;
 
                 var index = (maxIndex + 1);
                 var hasExplicitIndex = false;
@@ -403,21 +403,21 @@ namespace Skopik
             return array;
         }
 
-        public SkopikArrayType ReadNestedArray(SkopikBaseScopeType parent, string arrayName = "")
+        public SkopikArray ReadNestedArray(SkopikScopeBase parent, string arrayName = "")
         {
             var array = ReadArray(arrayName);
 
-            if (parent is SkopikScopeType)
-                ((SkopikScopeType)parent).ScopeData.Add(arrayName, array);
-            if (parent is SkopikArrayType)
-                ((SkopikArrayType)parent).ArrayData.Add(array);
+            if (parent is SkopikScope)
+                ((SkopikScope)parent).ScopeData.Add(arrayName, array);
+            if (parent is SkopikArray)
+                ((SkopikArray)parent).ArrayData.Add(array);
 
             return array;
         }
         
-        public SkopikScopeType ReadScope(string scopeName = "")
+        public SkopikScope ReadScope(string scopeName = "")
         {
-            var scope = new SkopikScopeType() {
+            var scope = new SkopikScope() {
                 Name = scopeName
             };
             
@@ -428,7 +428,7 @@ namespace Skopik
                 if (String.IsNullOrEmpty(token))
                     continue;
 
-                SkopikObjectType obj = null;
+                SkopikObject obj = null;
 
                 // end of current scope?
                 if (Skopik.IsClosingBrace(token))
@@ -447,17 +447,17 @@ namespace Skopik
             return scope;
         }
 
-        public SkopikScopeType ReadNestedScope(SkopikBaseScopeType parent, string scopeName = "")
+        public SkopikScope ReadNestedScope(SkopikScopeBase parent, string scopeName = "")
         {
             if (parent == null)
                 throw new ArgumentNullException(nameof(parent), "Parent cannot be null.");
 
             var scope = ReadScope(scopeName);
 
-            if (parent is SkopikScopeType)
-                ((SkopikScopeType)parent).ScopeData.Add(scopeName, scope);
-            if (parent is SkopikArrayType)
-                ((SkopikArrayType)parent).ArrayData.Add(scope);
+            if (parent is SkopikScope)
+                ((SkopikScope)parent).ScopeData.Add(scopeName, scope);
+            if (parent is SkopikArray)
+                ((SkopikArray)parent).ArrayData.Add(scope);
 
             return scope;
         }

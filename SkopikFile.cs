@@ -9,7 +9,7 @@ namespace Skopik
 {
     public class SkopikData
     {
-        public SkopikScopeType GlobalScope { get; set; }
+        public SkopikScope GlobalScope { get; set; }
         
         public SkopikData()
         {

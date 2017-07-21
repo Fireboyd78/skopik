@@ -5,8 +5,8 @@ using System.Text;
 
 namespace Skopik
 {
-    using ArrayDataValue = List<SkopikObjectType>;
-    using ScopeDataValue = Dictionary<string, SkopikObjectType>;
+    using ArrayDataValue = List<SkopikObject>;
+    using ScopeDataValue = Dictionary<string, SkopikObject>;
 
     public enum SkopikDataType : int
     {
@@ -29,6 +29,7 @@ namespace Skopik
         /*
             Special types
         */
+
         Keyword         = (1 << 5),
 
         Operator        = (1 << 6),
@@ -90,7 +91,7 @@ namespace Skopik
         UInteger64  = Integer | Unsigned | Long,
     }
 
-    public abstract class SkopikObjectType
+    public abstract class SkopikObject
     {
         /// <summary>
         /// Gets or sets the actual object value of this type.
@@ -100,20 +101,20 @@ namespace Skopik
         public abstract SkopikDataType DataType { get; }
     }
 
-    public class SkopikNullType : SkopikObjectType
+    public class SkopikNull : SkopikObject
     {
         public override SkopikDataType DataType
         {
             get { return SkopikDataType.Null; }
         }
         
-        public SkopikNullType()
+        public SkopikNull()
         {
             DataValue = null;
         }
     }
 
-    public abstract class SkopikBaseScopeType : SkopikObjectType
+    public abstract class SkopikScopeBase : SkopikObject
     {
         /// <summary>
         /// Gets or sets the name of this scoped object.
@@ -134,7 +135,7 @@ namespace Skopik
         public abstract bool IsEmpty { get; }
     }
 
-    public class SkopikScopeType : SkopikBaseScopeType
+    public class SkopikScope : SkopikScopeBase
     {
         public override SkopikDataType DataType
         {
@@ -159,7 +160,7 @@ namespace Skopik
             return false;
         }
 
-        public bool IsObjectInScope(SkopikObjectType obj)
+        public bool IsObjectInScope(SkopikObject obj)
         {
             if (ScopeData.Count > 0)
                 return ScopeData.ContainsValue(obj);
@@ -167,19 +168,19 @@ namespace Skopik
             return false;
         }
         
-        public SkopikScopeType()
+        public SkopikScope()
         {
             DataValue = new ScopeDataValue();
         }
 
-        public SkopikScopeType(string name)
+        public SkopikScope(string name)
             : this()
         {
             Name = name;
         }
     }
     
-    public class SkopikArrayType : SkopikBaseScopeType
+    public class SkopikArray : SkopikScopeBase
     {
         public override SkopikDataType DataType
         {
@@ -196,19 +197,19 @@ namespace Skopik
             get { return (ArrayData.Count == 0); }
         }
 
-        public SkopikArrayType()
+        public SkopikArray()
         {
             DataValue = new ArrayDataValue();
         }
 
-        public SkopikArrayType(string name)
+        public SkopikArray(string name)
             : this()
         {
             Name = name;
         }
     }
 
-    public class SkopikBooleanType : SkopikObjectType
+    public class SkopikBoolean : SkopikObject
     {
         public override SkopikDataType DataType
         {
@@ -221,42 +222,42 @@ namespace Skopik
             set { DataValue = value; }
         }
 
-        public SkopikBooleanType()
+        public SkopikBoolean()
         {
             Value = false;
         }
 
-        public SkopikBooleanType(bool value)
+        public SkopikBoolean(bool value)
         {
             Value = value;
         }
 
-        public SkopikBooleanType(string value)
+        public SkopikBoolean(string value)
         {
             var parseVal = bool.Parse(value);
             Value = parseVal;
         }
     }
     
-    public enum SkopikIntegerDisplayType
+    public enum SkopikNumberType
     {
         /// <summary>
-        /// The default display type. The number will be formatted normally.
+        /// The default number type. The number will be formatted normally.
         /// </summary>
         Default,
 
         /// <summary>
-        /// The binary display type. The number will be formatted as a binary sequence.
+        /// The binary number type. The number will be formatted as a binary sequence.
         /// </summary>
         Binary,
 
         /// <summary>
-        /// The hexadecimal display type. The number will be formatted as a hexadecimal number.
+        /// The hexadecimal number type. The number will be formatted as a hexadecimal number.
         /// </summary>
         Hexadecimal,
     }
 
-    public abstract class SkopikIntegerBaseType : SkopikObjectType
+    public abstract class SkopikNumber : SkopikObject
     {
         public override SkopikDataType DataType
         {
@@ -264,12 +265,12 @@ namespace Skopik
         }
 
         /// <summary>
-        /// Gets or sets the display type of this integer.
+        /// Gets or sets the number type of this integer.
         /// </summary>
-        public SkopikIntegerDisplayType DisplayType { get; set; }
+        public SkopikNumberType NumberType { get; set; }
     }
 
-    public class SkopikInteger32Type : SkopikIntegerBaseType
+    public class SkopikInteger32 : SkopikNumber
     {
         public override SkopikDataType DataType
         {
@@ -282,18 +283,18 @@ namespace Skopik
             set { DataValue = value; }
         }
 
-        public SkopikInteger32Type() : base()
+        public SkopikInteger32() : base()
         {
             DataValue = default(int);
         }
 
-        public SkopikInteger32Type(int value)
+        public SkopikInteger32(int value)
         {
             DataValue = value;
         }
     }
 
-    public class SkopikUInteger32Type : SkopikIntegerBaseType
+    public class SkopikUInteger32 : SkopikNumber
     {
         public override SkopikDataType DataType
         {
@@ -306,18 +307,18 @@ namespace Skopik
             set { DataValue = value; }
         }
 
-        public SkopikUInteger32Type() : base()
+        public SkopikUInteger32() : base()
         {
             DataValue = default(uint);
         }
 
-        public SkopikUInteger32Type(uint value)
+        public SkopikUInteger32(uint value)
         {
             DataValue = value;
         }
     }
 
-    public class SkopikInteger64Type : SkopikIntegerBaseType
+    public class SkopikInteger64 : SkopikNumber
     {
         public override SkopikDataType DataType
         {
@@ -330,18 +331,18 @@ namespace Skopik
             set { DataValue = value; }
         }
 
-        public SkopikInteger64Type() : base()
+        public SkopikInteger64() : base()
         {
             DataValue = default(long);
         }
 
-        public SkopikInteger64Type(long value)
+        public SkopikInteger64(long value)
         {
             DataValue = value;
         }
     }
 
-    public class SkopikUInteger64Type : SkopikIntegerBaseType
+    public class SkopikUInteger64 : SkopikNumber
     {
         public override SkopikDataType DataType
         {
@@ -354,18 +355,18 @@ namespace Skopik
             set { DataValue = value; }
         }
 
-        public SkopikUInteger64Type() : base()
+        public SkopikUInteger64() : base()
         {
             DataValue = default(ulong);
         }
 
-        public SkopikUInteger64Type(ulong value)
+        public SkopikUInteger64(ulong value)
         {
             DataValue = value;
         }
     }
 
-    public class SkopikFloatType : SkopikObjectType
+    public class SkopikFloat : SkopikObject
     {
         public override SkopikDataType DataType
         {
@@ -378,18 +379,18 @@ namespace Skopik
             set { DataValue = value; }
         }
 
-        public SkopikFloatType() : base()
+        public SkopikFloat() : base()
         {
             DataValue = default(float);
         }
 
-        public SkopikFloatType(float value)
+        public SkopikFloat(float value)
         {
             DataValue = value;
         }
     }
 
-    public class SkopikDoubleType : SkopikObjectType
+    public class SkopikDouble : SkopikObject
     {
         public override SkopikDataType DataType
         {
@@ -402,18 +403,18 @@ namespace Skopik
             set { DataValue = value; }
         }
 
-        public SkopikDoubleType() : base()
+        public SkopikDouble() : base()
         {
             DataValue = default(double);
         }
 
-        public SkopikDoubleType(double value)
+        public SkopikDouble(double value)
         {
             DataValue = value;
         }
     }
 
-    public class SkopikStringType : SkopikObjectType
+    public class SkopikString : SkopikObject
     {
         public override SkopikDataType DataType
         {
@@ -425,18 +426,18 @@ namespace Skopik
         /// </summary>
         public string Value { get; set; }
 
-        public SkopikStringType()
+        public SkopikString()
         {
             Value = String.Empty;
         }
 
-        public SkopikStringType(string value)
+        public SkopikString(string value)
         {
             Value = value;
         }
     }
 
-    public class SkopikReferenceType : SkopikObjectType
+    public class SkopikReference : SkopikObject
     {
         public override SkopikDataType DataType
         {
@@ -446,14 +447,14 @@ namespace Skopik
         /// <summary>
         /// Gets the active scope.
         /// </summary>
-        public SkopikScopeType Scope { get; }
+        public SkopikScope Scope { get; }
 
         /// <summary>
         /// Gets the referenced object.
         /// </summary>
-        public SkopikObjectType ObjectReference { get; }
+        public SkopikObject ObjectReference { get; }
 
-        public SkopikReferenceType(SkopikScopeType scope, string objName)
+        public SkopikReference(SkopikScope scope, string objName)
         {
             if (scope == null)
                 throw new ArgumentNullException(nameof(scope), "Scope cannot be null.");
@@ -471,7 +472,7 @@ namespace Skopik
             }
         }
 
-        public SkopikReferenceType(SkopikScopeType scope, SkopikObjectType objRef)
+        public SkopikReference(SkopikScope scope, SkopikObject objRef)
         {
             if (scope == null)
                 throw new ArgumentNullException(nameof(scope), "Scope cannot be null.");
