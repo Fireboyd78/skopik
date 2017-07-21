@@ -19,7 +19,7 @@ namespace Skopik
                 Reader.Dispose();
         }
         
-        public SkopikObject ReadObject(SkopikScopeBase parent)
+        public ISkopikObject ReadObject(ISkopikScopedObject parent)
         {
             if (parent == null)
                 throw new ArgumentNullException(nameof(parent), "Parent cannot be null.");
@@ -119,7 +119,7 @@ namespace Skopik
                 var isNegative = Skopik.IsNegativeNumber(token);
                 var strIndex = 0;
 
-                SkopikNumber number = null;
+                ISkopikNumberObject number = null;
 
                 if ((dataType & SkopikDataType.BitField) != 0)
                 {
@@ -224,12 +224,12 @@ namespace Skopik
             return new SkopikNull();
         }
         
-        public SkopikObject ReadStatement(SkopikScopeBase parent)
+        public ISkopikObject ReadStatement(ISkopikScopedObject parent)
         {
             if (parent == null)
                 throw new ArgumentNullException(nameof(parent), "Parent cannot be null.");
 
-            SkopikObject obj = new SkopikNull();
+            ISkopikObject obj = new SkopikNull();
 
             var name = Reader.ReadToken();
 
@@ -296,7 +296,7 @@ namespace Skopik
             if (parent is SkopikScope)
             {
                 // add to the parent scope as a variable
-                ((SkopikScope)parent).ScopeData.Add(name, obj);
+                ((SkopikScope)parent).InnerData.Add(name, obj);
             }
 
             return obj;
@@ -304,9 +304,7 @@ namespace Skopik
         
         public SkopikArray ReadArray(string arrayName = "")
         {
-            var array = new SkopikArray() {
-                Name = arrayName
-            };
+            var array = new SkopikArray(arrayName);
 
             var maxIndex = -1;
 
@@ -317,7 +315,7 @@ namespace Skopik
                 if (String.IsNullOrEmpty(token))
                     continue;
                 
-                SkopikObject obj = null;
+                ISkopikObject obj = null;
 
                 var index = (maxIndex + 1);
                 var hasExplicitIndex = false;
@@ -371,7 +369,7 @@ namespace Skopik
                 {
                     // add null entries if needed
                     for (int i = (maxIndex + 1); i < index; i++)
-                        array.ArrayData.Insert(i, null);
+                        array.InnerData.Insert(i, null);
                 }
                 else
                 {
@@ -385,7 +383,7 @@ namespace Skopik
                 if (obj == null)
                     break;
                 
-                array.ArrayData.Insert(index, obj);
+                array.InnerData.Insert(index, obj);
 
                 if (!Reader.EndOfLine)
                 {
@@ -403,23 +401,21 @@ namespace Skopik
             return array;
         }
 
-        public SkopikArray ReadNestedArray(SkopikScopeBase parent, string arrayName = "")
+        public SkopikArray ReadNestedArray(ISkopikScopedObject parent, string arrayName = "")
         {
             var array = ReadArray(arrayName);
 
             if (parent is SkopikScope)
-                ((SkopikScope)parent).ScopeData.Add(arrayName, array);
+                ((SkopikScope)parent).InnerData.Add(arrayName, array);
             if (parent is SkopikArray)
-                ((SkopikArray)parent).ArrayData.Add(array);
+                ((SkopikArray)parent).InnerData.Add(array);
 
             return array;
         }
         
         public SkopikScope ReadScope(string scopeName = "")
         {
-            var scope = new SkopikScope() {
-                Name = scopeName
-            };
+            var scope = new SkopikScope(scopeName);
             
             while (!Reader.EndOfStream)
             {
@@ -428,7 +424,7 @@ namespace Skopik
                 if (String.IsNullOrEmpty(token))
                     continue;
 
-                SkopikObject obj = null;
+                ISkopikObject obj = null;
 
                 // end of current scope?
                 if (Skopik.IsClosingBrace(token))
@@ -447,7 +443,7 @@ namespace Skopik
             return scope;
         }
 
-        public SkopikScope ReadNestedScope(SkopikScopeBase parent, string scopeName = "")
+        public SkopikScope ReadNestedScope(ISkopikScopedObject parent, string scopeName = "")
         {
             if (parent == null)
                 throw new ArgumentNullException(nameof(parent), "Parent cannot be null.");
@@ -455,9 +451,9 @@ namespace Skopik
             var scope = ReadScope(scopeName);
 
             if (parent is SkopikScope)
-                ((SkopikScope)parent).ScopeData.Add(scopeName, scope);
+                ((SkopikScope)parent).InnerData.Add(scopeName, scope);
             if (parent is SkopikArray)
-                ((SkopikArray)parent).ArrayData.Add(scope);
+                ((SkopikArray)parent).InnerData.Add(scope);
 
             return scope;
         }

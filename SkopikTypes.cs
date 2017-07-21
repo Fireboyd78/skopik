@@ -1,12 +1,14 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Skopik
 {
-    using ArrayDataValue = List<SkopikObject>;
-    using ScopeDataValue = Dictionary<string, SkopikObject>;
+    using ArrayDataValue = List<ISkopikObject>;
+    using ScopeDataValue = Dictionary<string, ISkopikObject>;
 
     public enum SkopikDataType : int
     {
@@ -91,154 +93,6 @@ namespace Skopik
         UInteger64  = Integer | Unsigned | Long,
     }
 
-    public abstract class SkopikObject
-    {
-        /// <summary>
-        /// Gets or sets the actual object value of this type.
-        /// </summary>
-        protected object DataValue { get; set; }
-
-        public abstract SkopikDataType DataType { get; }
-    }
-
-    public class SkopikNull : SkopikObject
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.Null; }
-        }
-        
-        public SkopikNull()
-        {
-            DataValue = null;
-        }
-    }
-
-    public abstract class SkopikScopeBase : SkopikObject
-    {
-        /// <summary>
-        /// Gets or sets the name of this scoped object.
-        /// </summary>
-        public virtual string Name { get; set; }
-
-        /// <summary>
-        /// Gets whether or not this scoped object is anonymous.
-        /// </summary>
-        public virtual bool IsAnonymous
-        {
-            get { return (String.IsNullOrEmpty(Name)); }
-        }
-
-        /// <summary>
-        /// Gets whether or not this scoped object is empty.
-        /// </summary>
-        public abstract bool IsEmpty { get; }
-    }
-
-    public class SkopikScope : SkopikScopeBase
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.Scope; }
-        }
-        
-        public ScopeDataValue ScopeData
-        {
-            get { return (ScopeDataValue)DataValue; }
-        }
-        
-        public override bool IsEmpty
-        {
-            get { return (ScopeData.Count == 0); }
-        }
-
-        public bool IsObjectInScope(string name)
-        {
-            if (ScopeData.Count > 0)
-                return ScopeData.ContainsKey(name);
-
-            return false;
-        }
-
-        public bool IsObjectInScope(SkopikObject obj)
-        {
-            if (ScopeData.Count > 0)
-                return ScopeData.ContainsValue(obj);
-
-            return false;
-        }
-        
-        public SkopikScope()
-        {
-            DataValue = new ScopeDataValue();
-        }
-
-        public SkopikScope(string name)
-            : this()
-        {
-            Name = name;
-        }
-    }
-    
-    public class SkopikArray : SkopikScopeBase
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.Array; }
-        }
-        
-        public ArrayDataValue ArrayData
-        {
-            get { return (ArrayDataValue)DataValue; }
-        }
-        
-        public override bool IsEmpty
-        {
-            get { return (ArrayData.Count == 0); }
-        }
-
-        public SkopikArray()
-        {
-            DataValue = new ArrayDataValue();
-        }
-
-        public SkopikArray(string name)
-            : this()
-        {
-            Name = name;
-        }
-    }
-
-    public class SkopikBoolean : SkopikObject
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.Boolean; }
-        }
-
-        public bool Value
-        {
-            get { return (bool)DataValue; }
-            set { DataValue = value; }
-        }
-
-        public SkopikBoolean()
-        {
-            Value = false;
-        }
-
-        public SkopikBoolean(bool value)
-        {
-            Value = value;
-        }
-
-        public SkopikBoolean(string value)
-        {
-            var parseVal = bool.Parse(value);
-            Value = parseVal;
-        }
-    }
-    
     public enum SkopikNumberType
     {
         /// <summary>
@@ -257,191 +111,293 @@ namespace Skopik
         Hexadecimal,
     }
 
-    public abstract class SkopikNumber : SkopikObject
+    [AttributeUsage(AttributeTargets.Class, Inherited = false)]
+    public sealed class SkopikTypeAttribute : Attribute
     {
-        public override SkopikDataType DataType
+        /// <summary>
+        /// Gets the data type representing the Skopik object.
+        /// </summary>
+        public SkopikDataType DataType { get; }
+
+        public SkopikTypeAttribute(SkopikDataType dataType)
         {
-            get { return SkopikDataType.None; }
+            DataType = dataType;
         }
+    }
+
+    public interface ISkopikObject
+    {
+        object GetValue();
+    }
+
+    public interface ISkopikTypeObject<T> : ISkopikObject
+    {
+        T Value { get; set; }
+    }
+
+    public interface ISkopikScopedObject : ISkopikObject
+    {
+        /// <summary>
+        /// Gets or sets the name of this scoped object.
+        /// </summary>
+        string Name { get; set; }
 
         /// <summary>
-        /// Gets or sets the number type of this integer.
+        /// Gets whether or not this scoped object is anonymous.
         /// </summary>
-        public SkopikNumberType NumberType { get; set; }
-    }
-
-    public class SkopikInteger32 : SkopikNumber
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.Integer32; }
-        }
-
-        public int Value
-        {
-            get { return (int)DataValue; }
-            set { DataValue = value; }
-        }
-
-        public SkopikInteger32() : base()
-        {
-            DataValue = default(int);
-        }
-
-        public SkopikInteger32(int value)
-        {
-            DataValue = value;
-        }
-    }
-
-    public class SkopikUInteger32 : SkopikNumber
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.UInteger32; }
-        }
-
-        public uint Value
-        {
-            get { return (uint)DataValue; }
-            set { DataValue = value; }
-        }
-
-        public SkopikUInteger32() : base()
-        {
-            DataValue = default(uint);
-        }
-
-        public SkopikUInteger32(uint value)
-        {
-            DataValue = value;
-        }
-    }
-
-    public class SkopikInteger64 : SkopikNumber
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.Integer64; }
-        }
-
-        public long Value
-        {
-            get { return (long)DataValue; }
-            set { DataValue = value; }
-        }
-
-        public SkopikInteger64() : base()
-        {
-            DataValue = default(long);
-        }
-
-        public SkopikInteger64(long value)
-        {
-            DataValue = value;
-        }
-    }
-
-    public class SkopikUInteger64 : SkopikNumber
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.UInteger64; }
-        }
-
-        public ulong Value
-        {
-            get { return (ulong)DataValue; }
-            set { DataValue = value; }
-        }
-
-        public SkopikUInteger64() : base()
-        {
-            DataValue = default(ulong);
-        }
-
-        public SkopikUInteger64(ulong value)
-        {
-            DataValue = value;
-        }
-    }
-
-    public class SkopikFloat : SkopikObject
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.Float; }
-        }
-
-        public float Value
-        {
-            get { return (float)DataValue; }
-            set { DataValue = value; }
-        }
-
-        public SkopikFloat() : base()
-        {
-            DataValue = default(float);
-        }
-
-        public SkopikFloat(float value)
-        {
-            DataValue = value;
-        }
-    }
-
-    public class SkopikDouble : SkopikObject
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.Double; }
-        }
-
-        public double Value
-        {
-            get { return (double)DataValue; }
-            set { DataValue = value; }
-        }
-
-        public SkopikDouble() : base()
-        {
-            DataValue = default(double);
-        }
-
-        public SkopikDouble(double value)
-        {
-            DataValue = value;
-        }
-    }
-
-    public class SkopikString : SkopikObject
-    {
-        public override SkopikDataType DataType
-        {
-            get { return SkopikDataType.String; }
-        }
+        bool IsAnonymous { get; }
 
         /// <summary>
-        /// Gets or sets the value of this string.
+        /// Gets whether or not this scoped object is empty.
         /// </summary>
-        public string Value { get; set; }
+        bool IsEmpty { get; }
+    }
 
-        public SkopikString()
+    public interface ISkopikScopedTypeObject<T> : ISkopikScopedObject
+    {
+        /// <summary>
+        /// Gets the inner data of this scoped object.
+        /// </summary>
+        T InnerData { get; }
+    }
+
+    public abstract class SkopikTypeObject<T> : ISkopikTypeObject<T>
+    {
+        object ISkopikObject.GetValue()
         {
-            Value = String.Empty;
+            return Value;
         }
 
-        public SkopikString(string value)
+        public T Value { get; set; }
+
+        public SkopikTypeObject()
+        {
+            Value = default(T);
+        }
+
+        public SkopikTypeObject(T value)
         {
             Value = value;
         }
     }
 
-    public class SkopikReference : SkopikObject
+    public interface ISkopikNumberObject : ISkopikObject
     {
-        public override SkopikDataType DataType
+        SkopikNumberType NumberType { get; set; }
+    }
+        
+    public abstract class SkopikNumberObject<T> : SkopikTypeObject<T>, ISkopikNumberObject
+    {
+        public SkopikNumberType NumberType { get; set; }
+
+        public SkopikNumberObject()
+            : base() { }
+        public SkopikNumberObject(T value)
+            : base(value) { }
+    }
+
+    public abstract class SkopikScopedObject : ISkopikScopedObject
+    {
+        object ISkopikObject.GetValue()
         {
-            get { return SkopikDataType.Reference; }
+            throw new InvalidOperationException("Cannot retrieve the value of a scoped object from the base type.");
+        }
+
+        public string Name { get; set; }
+
+        public bool IsAnonymous
+        {
+            get { return String.IsNullOrEmpty(Name); }
+        }
+
+        public virtual bool IsEmpty
+        {
+            get { return true; }
+        }
+    }
+
+    public abstract class SkopikScopedTypeObject<T> : SkopikScopedObject, ISkopikScopedTypeObject<T>
+        where T : ICollection, IEnumerable, new()
+    {
+        protected T m_innerData;
+
+        object ISkopikObject.GetValue()
+        {
+            return m_innerData;
+        }
+
+        public T InnerData
+        {
+            get
+            {
+                if (m_innerData == null)
+                    m_innerData = new T();
+
+                return m_innerData;
+            }
+        }
+
+        public override bool IsEmpty
+        {
+            get { return (InnerData.Count == 0); }
+        }
+
+        public abstract bool IsObjectInScope(ISkopikObject obj);
+    }
+
+    [SkopikType(SkopikDataType.Scope)]
+    public class SkopikScope : SkopikScopedTypeObject<ScopeDataValue>
+    {
+        public ISkopikObject this[string name]
+        {
+            get
+            {
+                if (InnerData.ContainsKey(name))
+                    return InnerData[name];
+
+                return null;
+            }
+        }
+
+        public bool IsObjectInScope(string name)
+        {
+            if (InnerData.Count > 0)
+                return InnerData.ContainsKey(name);
+
+            return false;
+        }
+
+        public override bool IsObjectInScope(ISkopikObject obj)
+        {
+            if (InnerData.Count > 0)
+                return InnerData.ContainsValue(obj);
+
+            return false;
+        }
+
+        public SkopikScope(string name)
+        {
+            Name = name;
+        }
+    }
+
+    [SkopikType(SkopikDataType.Array)]
+    public class SkopikArray : SkopikScopedTypeObject<ArrayDataValue>
+    {
+        public override bool IsObjectInScope(ISkopikObject obj)
+        {
+            for (int i = 0; i < InnerData.Count; i++)
+            {
+                // check against the actual reference
+                if (Object.ReferenceEquals(obj, InnerData[i]))
+                    return true;
+            }
+            return false;
+        }
+
+        public SkopikArray(string name)
+        {
+            Name = name;
+        }
+    }
+
+    [SkopikType(SkopikDataType.Null)]
+    public class SkopikNull : ISkopikObject
+    {
+        object ISkopikObject.GetValue()
+        {
+            return null;
+        }
+
+        public SkopikNull()
+        {
+        }
+    }
+
+    [SkopikType(SkopikDataType.Boolean)]
+    public class SkopikBoolean : SkopikTypeObject<Boolean>
+    {
+        public SkopikBoolean()
+            : base() { }
+        public SkopikBoolean(bool value)
+            : base(value) { }
+
+        public SkopikBoolean(string value)
+        {
+            var parseVal = bool.Parse(value);
+            Value = parseVal;
+        }
+    }
+
+    [SkopikType(SkopikDataType.Integer32)]
+    public class SkopikInteger32 : SkopikNumberObject<Int32>
+    {
+        public SkopikInteger32()
+            : base() { }
+        public SkopikInteger32(int value)
+            : base(value) { }
+    }
+
+    [SkopikType(SkopikDataType.UInteger32)]
+    public class SkopikUInteger32 : SkopikNumberObject<UInt32>
+    {
+        public SkopikUInteger32()
+            : base() { }
+        public SkopikUInteger32(uint value)
+            : base(value) { }
+    }
+
+    [SkopikType(SkopikDataType.Integer64)]
+    public class SkopikInteger64 : SkopikNumberObject<Int64>
+    {
+        public SkopikInteger64()
+            : base() { }
+        public SkopikInteger64(long value)
+            : base(value) { }
+    }
+
+    [SkopikType(SkopikDataType.UInteger64)]
+    public class SkopikUInteger64 : SkopikNumberObject<UInt64>
+    {
+        public SkopikUInteger64()
+            : base() { }
+        public SkopikUInteger64(ulong value)
+            : base(value) { }
+    }
+
+    [SkopikType(SkopikDataType.Float)]
+    public class SkopikFloat : SkopikNumberObject<Single>
+    {
+        public SkopikFloat()
+            : base() { }
+        public SkopikFloat(float value)
+            : base(value) { }
+    }
+
+    [SkopikType(SkopikDataType.Double)]
+    public class SkopikDouble : SkopikNumberObject<Double>
+    {
+        public SkopikDouble()
+            : base() { }
+        public SkopikDouble(double value)
+            : base(value) { }
+    }
+
+    [SkopikType(SkopikDataType.String)]
+    public class SkopikString : SkopikTypeObject<String>
+    {
+        public SkopikString()
+            : base() { }
+        public SkopikString(string value)
+            : base(value) { }
+    }
+
+    [SkopikType(SkopikDataType.Reference)]
+    public class SkopikReference : ISkopikObject
+    {
+        object ISkopikObject.GetValue()
+        {
+            return ObjectReference;
         }
 
         /// <summary>
@@ -452,7 +408,7 @@ namespace Skopik
         /// <summary>
         /// Gets the referenced object.
         /// </summary>
-        public SkopikObject ObjectReference { get; }
+        public ISkopikObject ObjectReference { get; }
 
         public SkopikReference(SkopikScope scope, string objName)
         {
@@ -464,7 +420,7 @@ namespace Skopik
             if (scope.IsObjectInScope(objName))
             {
                 Scope = scope;
-                ObjectReference = scope.ScopeData[objName];
+                ObjectReference = scope.InnerData[objName];
             }
             else
             {
@@ -472,7 +428,7 @@ namespace Skopik
             }
         }
 
-        public SkopikReference(SkopikScope scope, SkopikObject objRef)
+        public SkopikReference(SkopikScope scope, ISkopikObject objRef)
         {
             if (scope == null)
                 throw new ArgumentNullException(nameof(scope), "Scope cannot be null.");
