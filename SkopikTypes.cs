@@ -295,16 +295,52 @@ namespace Skopik
         /// Gets a <see cref="ISkopikObject"/> with the specified name in the current scope.
         /// </summary>
         /// <param name="name">The name of the <see cref="ISkopikObject"/> to retrieve.</param>
-        /// <returns>The <see cref="ISkopikObject"/> with the specified <paramref name="name"/>; otherwise, null.</returns>
+        /// <returns>The <see cref="ISkopikObject"/> with the specified name; otherwise, null.</returns>
         public ISkopikObject this[string name]
         {
-            get
-            {
-                if (InnerData.ContainsKey(name))
-                    return InnerData[name];
+            get { return GetObject(name); }
+        }
 
-                return null;
+        /// <summary>
+        /// Gets a <see cref="ISkopikObject"/> with the specified name in the current scope.
+        /// </summary>
+        /// <param name="name">The name of the <see cref="ISkopikObject"/> to retrieve.</param>
+        /// <returns>The <see cref="ISkopikObject"/> with the specified name; otherwise, null.</returns>
+        public ISkopikObject GetObject(string name)
+        {
+            if (InnerData.ContainsKey(name))
+                return InnerData[name];
+
+            return null;
+        }
+
+        /// <summary>
+        /// Gets a fully-qualified type of <see cref="ISkopikObject"/> with the specified name in the current scope.
+        /// </summary>
+        /// <typeparam name="T">The fully-qualified type of <see cref="ISkopikObject"/> to retrieve.</typeparam>
+        /// <param name="name">The name of the <see cref="ISkopikObject"/> to retrieve.</param>
+        /// <returns>The fully-qualified <see cref="ISkopikObject"/> of type <typeparamref name="T"/>; otherwise, null.</returns>
+        /// <exception cref="InvalidCastException">Thrown when the result cannot be cast to the specified type <typeparamref name="T"/>.</exception>
+        public T GetObject<T>(string name)
+            where T : class, ISkopikObject
+        {
+            var objType = typeof(T);
+
+            if (InnerData.ContainsKey(name))
+            {
+                var val = InnerData[name];
+                var valType = val.GetType();
+
+                // we found the named object, but we can't cast it!
+                if (!objType.IsAssignableFrom(valType))
+                    throw new InvalidCastException($"Cannot cast object '{name}' of type '{valType.FullName}' to '{objType.FullName}'.");
+
+                // return as fully qualified type
+                return val as T;
             }
+
+            // no object with this name found
+            return null;
         }
 
         /// <summary>
@@ -348,20 +384,75 @@ namespace Skopik
         /// <exception cref="ArgumentOutOfRangeException">Thrown when the <paramref name="index"/> exceeds the number of objects in the array.</exception>
         public ISkopikObject this[int index]
         {
-            get
-            {
-                if (index >= InnerData.Count)
-                    throw new ArgumentOutOfRangeException(nameof(index), index, "Not enough objects present.");
+            get { return GetObject(index); }
+        }
+        
+        /// <summary>
+        /// Gets a <see cref="ISkopikObject"/> from the specified index in the scope.
+        /// </summary>
+        /// <param name="index">The index of the <see cref="ISkopikObject"/> to retrieve.</param>
+        /// <returns>The <see cref="ISkopikObject"/> with the specified <paramref name="index"/>; otherwise, null.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the <paramref name="index"/> exceeds the number of objects in the array.</exception>
+        public ISkopikObject GetObject(int index)
+        {
+            if (index >= InnerData.Count)
+                throw new ArgumentOutOfRangeException(nameof(index), index, "Not enough objects present.");
 
-                return InnerData[index];
+            return InnerData[index];
+        }
+
+        /// <summary>
+        /// Gets a <see cref="ISkopikScopedObject"/> with a specified name from the scope.
+        /// </summary>
+        /// <param name="name">The name of the <see cref="ISkopikScopedObject"/> to retreive.</param>
+        /// <returns>The <see cref="ISkopikScopedObject"/> with the specified name; otherwise, null.</returns>
+        public ISkopikScopedObject GetScopeObject(string name)
+        {
+            foreach (var entry in InnerData)
+            {
+                var scope = entry as ISkopikScopedObject;
+
+                if (scope == null)
+                    continue;
+
+                if (scope.Name == name)
+                    return scope;
             }
+
+            // nothing found
+            return null;
+        }
+
+        /// <summary>
+        /// Gets a fully-qualified type of <see cref="ISkopikScopedObject"/> with the specified name from the scope.
+        /// </summary>
+        /// <typeparam name="T">The fully-qualified type of <see cref="ISkopikScopedObject"/> to retrieve.</typeparam>
+        /// <param name="name">The name of the <see cref="ISkopikScopedObject"/> to retrieve.</param>
+        /// <returns>The fully-qualified <see cref="ISkopikScopedObject"/> of type <typeparamref name="T"/>; otherwise, null.</returns>
+        /// <exception cref="InvalidCastException">Thrown when the result cannot be cast to the specified type <typeparamref name="T"/></exception>
+        public T GetScopeObject<T>(string name)
+            where T : class, ISkopikScopedObject
+        {
+            var scopeType = typeof(T);
+            var scopeObj = GetScopeObject(name);
+
+            if (scopeObj != null)
+            {
+                var scopeObjType = scopeObj.GetType();
+
+                if (!scopeType.IsAssignableFrom(scopeObjType))
+                    throw new InvalidCastException($"Cannot cast scope object '{name}' of type '{scopeObjType.FullName}' to '{scopeType.FullName}'.");
+            }
+
+            // not found
+            return null;
         }
 
         /// <summary>
         /// Retrieves the index of the specified <see cref="ISkopikObject"/> in the scope.
         /// </summary>
         /// <param name="obj">The object to retrieve the index of.</param>
-        /// <returns>The zero-based index of the <see cref="ISkopikObject"/> in the array. Returns -1 if not found.</returns>
+        /// <returns>The zero-based index of the <see cref="ISkopikObject"/> in the array; otherwise, -1 if not found.</returns>
         /// <exception cref="ArgumentNullException">Thrown when the <paramref name="obj"/> parameter is null.</exception>
         public int GetObjectIndex(ISkopikObject obj)
         {
