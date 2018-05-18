@@ -20,9 +20,14 @@ namespace Skopik
         internal static readonly char AssignmentKey = '=';
         internal static readonly char ScopeBlockKey = ':'; // opening of a scope block
 
-        internal static readonly char[] ControlKeys = { '{', '}', '[', ']' };
+        internal static readonly char[] BlockKeys = {
+            '{', '}',
+            '[', ']',
+            '(', ')',
+        };
+
         internal static readonly char[] OperatorKeys = { '@', '"', '\'' };
-        internal static readonly char[] SeparatorKeys = { ',', ';' };
+        internal static readonly char[] DelimiterKeys = { ',', ';' };
 
         internal static readonly char[] SuffixKeys = { 'b', 'd', 'f', 'u', 'U', 'L' };
 
@@ -34,9 +39,10 @@ namespace Skopik
             SkopikDataType.Null,        // 'null'
         };
 
-        internal static readonly SkopikDataType[] ControlLookup = {
+        internal static readonly SkopikDataType[] BlockLookup = {
             SkopikDataType.Scope,       // '{}'
             SkopikDataType.Array,       // '[]'
+            SkopikDataType.Tuple,       // '()'
         };
 
         internal static readonly SkopikDataType[] OperatorLookup = {
@@ -45,8 +51,9 @@ namespace Skopik
             SkopikDataType.String,      // ' ' '
         };
 
-        internal static readonly SkopikDataType[] SeparatorLookup = {
-            SkopikDataType.Array,       // ','
+        internal static readonly SkopikDataType[] DelimiterLookup = {
+            SkopikDataType.Array | SkopikDataType.Tuple,
+                                        // ','
             SkopikDataType.Scope,       // ';'
         };
 
@@ -61,26 +68,25 @@ namespace Skopik
         
         internal static void MapLookupTypes()
         {
-            for (int i = 0; i < ControlKeys.Length; i++)
+            for (int i = 0; i < BlockKeys.Length; i += 2)
             {
-                var type = (int)(((i % 2) == 0) ? SkopikDataType.OpBlockOpen : SkopikDataType.OpBlockClose);
-
-                // combine into one operator :)
-                type |= (int)ControlLookup[(i > 1) ? 1 : 0];
-
-                m_lookup[ControlKeys[i]] = type;
+                var opBlockType = BlockLookup[i >> 1];
+                
+                // set open/close controls
+                m_lookup[BlockKeys[i + 0]] = (int)(opBlockType | SkopikDataType.OpBlockOpen);
+                m_lookup[BlockKeys[i + 1]] = (int)(opBlockType | SkopikDataType.OpBlockClose);
             }
 
             for (int i = 0; i < OperatorKeys.Length; i++)
                 m_lookup[OperatorKeys[i]] = (int)OperatorLookup[i];
 
-            for (int i = 0; i < SeparatorKeys.Length; i++)
-                m_lookup[SeparatorKeys[i]] = (int)(SkopikDataType.OpBlockStmtEnd | SeparatorLookup[i]);
+            for (int i = 0; i < DelimiterKeys.Length; i++)
+                m_lookup[DelimiterKeys[i]] = (int)(DelimiterLookup[i] | SkopikDataType.OpBlockDelim);
 
             for (int i = 0; i < SuffixKeys.Length; i++)
                 m_lookup[SuffixKeys[i]] = (int)SuffixLookup[i];
 
-            m_lookup[AssignmentKey] = (int)SkopikDataType.OpStmt;
+            m_lookup[AssignmentKey] = (int)SkopikDataType.OpStmtAssignmt;
             m_lookup[ScopeBlockKey] = (int)SkopikDataType.OpStmtBlock;
         }
 
@@ -326,7 +332,7 @@ namespace Skopik
 
         internal static bool IsAssignmentOperator(string value)
         {
-            return IsDataType(value, SkopikDataType.OpStmt);
+            return IsDataType(value, SkopikDataType.OpStmtAssignmt);
         }
 
         internal static bool IsScopeBlockOperator(string value)
@@ -336,27 +342,32 @@ namespace Skopik
 
         internal static bool IsEndStatementOperator(string value)
         {
-            return IsDataType(value, SkopikDataType.OpBlockStmtEnd);
+            return IsDataType(value, SkopikDataType.OpBlockDelim);
         }
 
         internal static bool IsArraySeparator(string value)
         {
-            return IsDataType(value, SkopikDataType.OpArrayStmtEnd);
+            return IsDataType(value, SkopikDataType.OpArrayDelim);
         }
 
         internal static bool IsScopeSeparator(string value)
         {
-            return IsDataType(value, SkopikDataType.OpScopeStmtEnd);
+            return IsDataType(value, SkopikDataType.OpScopeDelim);
         }
 
-        internal static bool IsOpeningBrace(string value)
+        internal static bool IsDelimiter(string value, SkopikDataType subType = SkopikDataType.None)
         {
-            return IsDataType(value, SkopikDataType.OpBlockOpen);
+            return IsDataType(value, subType | SkopikDataType.OpBlockDelim);
         }
 
-        internal static bool IsClosingBrace(string value)
+        internal static bool IsOpeningBrace(string value, SkopikDataType subType = SkopikDataType.None)
         {
-            return IsDataType(value, SkopikDataType.OpBlockClose);
+            return IsDataType(value, subType | SkopikDataType.OpBlockOpen);
+        }
+
+        internal static bool IsClosingBrace(string value, SkopikDataType subType = SkopikDataType.None)
+        {
+            return IsDataType(value, subType | SkopikDataType.OpBlockClose);
         }
         
         internal static bool IsNegativeNumber(string value)

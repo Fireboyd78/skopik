@@ -43,3 +43,14 @@ test_inline = { test = "string index 0 = test"; inline = "string index 1 = inlin
         ],
     ]
 }
+// Oh look, tuples!
+"Test tuple": (
+    "Hi, I'm a tuple!",
+    "I'm just like an array, except every value is guaranteed to be the same type.",
+    "Every type is supported EXCEPT for tuples, because that would be ridiculous!",
+    "When a value of a different type is encountered, I'll throw an exception to let you know.",
+    /*
+    1, // this is how you break tuples ;)
+    */
+    "It's been a pleasure meeting you -- goodbye for now!",
+)

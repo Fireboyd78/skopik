@@ -290,10 +290,28 @@ namespace Skopik
                 if (Tokenizer.IsCommentLine(line))
                     continue;
 
-                // split them up into the token buffer and reset the index
-                m_tokenBuffer = Tokenizer.SplitTokens(line);
+                // end of multi-line comments at beginning of lines break parser,
+                // so we need hacks unfortunately...
+                if (line.StartsWith(Skopik.CommentBlockCloseKey))
+                {
+                    var buf = line.Substring(2);
+
+                    var tokens = new List<String>() {
+                        line.Substring(0, 2)
+                    };
+
+                    tokens.AddRange(Tokenizer.SplitTokens(buf));
+
+                    m_tokenBuffer = tokens.ToArray();
+                }
+                else
+                {
+                    // split them up into the token buffer and reset the index
+                    m_tokenBuffer = Tokenizer.SplitTokens(line);
+                }
+
                 m_tokenIndex = 0;
-                
+
                 // return number of tokens brought in
                 return m_tokenBuffer.Length;
             }
@@ -464,14 +482,22 @@ namespace Skopik
             while (!match && (token = ReadTokenInternal()) != null)
             {
                 if (token == matchToken)
+                {
                     match = true;
-                if (token == nestedToken)
+                    break;
+                }
+                else if (token == nestedToken)
                 {
                     var nestLine = CurrentLine;
 
                     // nested blocks
                     if (!MatchToken(matchToken, nestedToken))
                         throw new InvalidOperationException($"MatchToken() -- nested token '{nestedToken}' on line {nestLine} wasn't closed before the original token '{matchToken}' on line {startLine}.");
+                }
+                else if (CurrentLine > startLine)
+                {
+                    // multi-line match
+                    NextLine();
                 }
             }
             

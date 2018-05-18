@@ -17,6 +17,52 @@ namespace SkopikTest
             Debug.WriteLine(message);
         }
 
+        static void RunTest(SkopikData skopData)
+        {
+            var data = skopData.GlobalScope;
+
+            ISkopikObject[] objects = {
+                data["test_bool"],
+                data["test_int"],
+                data["test_uint"],
+                data["test_long"],
+                data["test_ulong"],
+                data["test_binary"],
+                data["test_double"],
+                data["test_float"],
+                data["test_string"],
+                data["test_inline"],
+                data["<array::('Test array')>"],
+                data["<scope::('Test scope')>"],
+                data["<tuple::('Test tuple')>"],
+            };
+            
+            for (int i = 0; i < objects.Length; i++)
+            {
+                var obj = objects[i];
+                var typeName = "ERROR!!!";
+
+                if (obj != null)
+                {
+                    var type = obj.GetType();
+
+                    typeName = type.Name;
+
+                    if (type.IsGenericType)
+                    {
+                        var args = type.GetGenericArguments().Select((e) => e.Name);
+
+                        typeName = $"{typeName.Split('`')[0]}<{String.Join(",", args)}>";
+                    }
+
+                    if (typeName.StartsWith("Skopik"))
+                        typeName = typeName.Substring(6);
+                }
+
+                WriteLog($"[{i}]: '{typeName}'");
+            }
+        }
+
         static void Main(string[] args)
         {
             var timer = new Stopwatch(); 
@@ -49,6 +95,10 @@ namespace SkopikTest
                 }
                 
                 var skopData = new SkopikData(buffer);
+
+                // only do this for tests run one time
+                if (nLoops == 1)
+                    RunTest(skopData);
             }
             timer.Stop();
             
