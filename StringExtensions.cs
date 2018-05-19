@@ -42,7 +42,8 @@ namespace Skopik
                         }
                         else
                         {
-                            return @this.Substring(start, length);
+                            // wrap in '<value>'
+                            return $"'{@this.Substring(start, length)}'";
                         }
                     }
                 }

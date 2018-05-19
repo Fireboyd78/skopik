@@ -19,6 +19,21 @@ namespace Skopik
             if (Reader != null)
                 Reader.Dispose();
         }
+
+        public ISkopikObject ReadBlock(SkopikDataType type, string name = "")
+        {
+            switch (type)
+            {
+            case SkopikDataType.OpArrayOpen:
+                return ReadArray(name);
+            case SkopikDataType.OpScopeOpen:
+                return ReadScope(name);
+            case SkopikDataType.OpTupleOpen:
+                return ReadTuple(name);
+            }
+
+            throw new InvalidOperationException("ReadBlock() -- could not determine block type to load!");
+        }
         
         public ISkopikObject ReadObject(ISkopikBlock parent)
         {
@@ -58,19 +73,10 @@ namespace Skopik
                         nextToken = Reader.ReadToken();
 
                         // named scopes
-                        if (Skopik.IsOpeningBrace(nextToken))
-                        {
-                            if (Skopik.IsDataType(nextToken, SkopikDataType.OpArrayOpen))
-                                return ReadArray(strValue);
-                            if (Skopik.IsDataType(nextToken, SkopikDataType.OpScopeOpen))
-                                return ReadScope(strValue);
-                            if (Skopik.IsDataType(nextToken, SkopikDataType.OpTupleOpen))
-                                return ReadTuple(strValue);
-                        }
-                        else
-                        {
+                        if (!Skopik.IsOpeningBrace(nextToken))
                             throw new InvalidOperationException($"ReadObject() -- malformed data on line {Reader.CurrentLine}.");
-                        }
+                        
+                        return ReadBlock(Skopik.GetDataType(nextToken), strValue);
                     }
                 }
 
@@ -88,15 +94,8 @@ namespace Skopik
 
             // anonymous scope/array?
             if (Skopik.IsOpeningBrace(token))
-            {
-                if (Skopik.IsDataType(token, SkopikDataType.OpArrayOpen))
-                    return ReadArray();
-                if (Skopik.IsDataType(token, SkopikDataType.OpScopeOpen))
-                    return ReadScope();
-                if (Skopik.IsDataType(token, SkopikDataType.OpTupleOpen))
-                    return ReadTuple();
-            }
-
+                return ReadBlock(Skopik.GetDataType(token));
+            
             if (Skopik.IsDecimalNumberValue(dataType))
             {
                 var decimalToken = Skopik.SanitizeNumber(token, false);
@@ -236,23 +235,9 @@ namespace Skopik
                     // named scopes
                     if (Skopik.IsOpeningBrace(op))
                     {
-                        var scopeName = name.StripQuotes();
+                        name = name.StripQuotes();
 
-                        if (Skopik.IsDataType(op, SkopikDataType.OpArrayOpen))
-                        {
-                            obj = ReadArray(scopeName);
-                            name = $"<array::('{scopeName}')>";
-                        }
-                        else if (Skopik.IsDataType(op, SkopikDataType.OpScopeOpen))
-                        {
-                            obj = ReadScope(scopeName);
-                            name = $"<scope::('{scopeName}')>";
-                        }
-                        else if (Skopik.IsDataType(op, SkopikDataType.OpTupleOpen))
-                        {
-                            obj = ReadTuple(scopeName);
-                            name = $"<tuple::('{scopeName}')>";
-                        }
+                        obj = ReadBlock(Skopik.GetDataType(op), name);
                     }
                     else
                     {

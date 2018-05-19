@@ -32,9 +32,9 @@ namespace SkopikTest
                 data["test_float"],
                 data["test_string"],
                 data["test_inline"],
-                data["<array::('Test array')>"],
-                data["<scope::('Test scope')>"],
-                data["<tuple::('Test tuple')>"],
+                data["'Test array'"],
+                data["'Test scope'"],
+                data["'Test tuple'"],
             };
             
             for (int i = 0; i < objects.Length; i++)
@@ -57,9 +57,12 @@ namespace SkopikTest
 
                     if (typeName.StartsWith("Skopik"))
                         typeName = typeName.Substring(6);
+
+                    if (obj is ISkopikValue)
+                        typeName = $"{typeName} : '{(ISkopikValue)obj}'";
                 }
 
-                WriteLog($"[{i}]: '{typeName}'");
+                WriteLog($"[{i}]: {typeName}");
             }
         }
 

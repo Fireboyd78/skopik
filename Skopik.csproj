@@ -44,7 +44,7 @@
   <ItemGroup>
     <Compile Include="Skopik.cs" />
     <Compile Include="SkopikDataType.cs" />
-    <Compile Include="SkopikFile.cs" />
+    <Compile Include="SkopikData.cs" />
     <Compile Include="SkopikTypes.cs" />
     <Compile Include="SkopikReader.cs" />
   </ItemGroup>
