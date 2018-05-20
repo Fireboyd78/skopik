@@ -43,13 +43,21 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Skopik.cs" />
-    <Compile Include="SkopikDataType.cs" />
+    <Compile Include="Types\SkopikArray.cs" />
+    <Compile Include="Types\SkopikBlock.cs" />
+    <Compile Include="Types\SkopikDataType.cs" />
     <Compile Include="SkopikData.cs" />
-    <Compile Include="SkopikTypes.cs" />
+    <Compile Include="Types\SkopikDynamic.cs" />
+    <Compile Include="Types\SkopikObject.cs" />
+    <Compile Include="Types\SkopikScope.cs" />
+    <Compile Include="Types\SkopikTuple.cs" />
+    <Compile Include="Types\SkopikExtensions.cs" />
+    <Compile Include="Types\SkopikFactory.cs" />
     <Compile Include="SkopikReader.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CharUtils.cs" />
+    <Compile Include="Types\SkopikValue.cs" />
     <Compile Include="StringExtensions.cs" />
     <Compile Include="TokenReader.cs" />
   </ItemGroup>

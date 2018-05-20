@@ -64,6 +64,22 @@ namespace SkopikTest
 
                 WriteLog($"[{i}]: {typeName}");
             }
+
+            // dynamic testing
+            dynamic test = skopData.GlobalScope.AsDynamic();
+            
+            WriteLog($"test_string = {test.test_string}");
+
+            // can also use indexers, e.g. test.test_inline[0]
+            var test_inline = new string[] {
+                test.test_inline.test,
+                test.test_inline.inline,
+            };
+
+            WriteLog($"test_inline = [ {test_inline[0]}, {test_inline[1]} ]");
+
+            test.test_string = "Hello, world.";
+            WriteLog($"test_string (new) = {test.test_string}");
         }
 
         static void Main(string[] args)
@@ -78,7 +94,7 @@ namespace SkopikTest
             }
 
             // how many times to parse it
-            var nLoops = (args.Length == 2) ? int.Parse(args[1]) : 5000;
+            var nLoops = (args.Length == 2) ? int.Parse(args[1]) : 1;
 
             var test1Elapsed = 0L;
             
