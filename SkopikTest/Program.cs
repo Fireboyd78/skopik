@@ -80,6 +80,11 @@ namespace SkopikTest
 
             test.test_string = "Hello, world.";
             WriteLog($"test_string (new) = {test.test_string}");
+
+            test.test_inline[0] = "eyyy";
+            test.test_inline[1] = "lmaooo";
+
+            WriteLog($"test_inline (new) = [ {test.test_inline[0]}, {test.test_inline[1]} ]");
         }
 
         static void Main(string[] args)

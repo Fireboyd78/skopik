@@ -55,24 +55,23 @@ namespace Skopik
 
         protected bool TrySetIndex(SetIndexBinder binder, int index, object value)
         {
-            if (index < Block.Count)
+            ISkopikObject result = null;
+
+            if (value is ISkopikObject)
             {
-                ISkopikObject result = null;
+                result = (ISkopikObject)value;
+            }
+            else if (SkopikFactory.IsValueType(value))
+            {
+                result = SkopikFactory.CreateValue(value);
+            }
 
-                if (value is ISkopikObject)
-                {
-                    result = (ISkopikObject)value;
-                }
-                else if (SkopikFactory.IsValueType(value))
-                {
-                    result = SkopikFactory.CreateValue(value);
-                }
-
-                if (result != null)
-                {
-                    Block[index] = result;
-                    return true;
-                }
+            // scopes will throw an exception,
+            // but arrays/tuples will handle this just fine
+            if (result != null)
+            {
+                Block[index] = result;
+                return true;
             }
 
             return false;
@@ -87,7 +86,7 @@ namespace Skopik
                 if (index is int)
                     return TryGetIndex(binder, (int)index, out result);
 
-                throw new InvalidOperationException("What the hell are you doing?");
+                throw new InvalidOperationException("Sorry, using string indexers is currently not supported.");
             }
             
             result = null;
@@ -103,7 +102,7 @@ namespace Skopik
                 if (index is int)
                     return TrySetIndex(binder, (int)index, value);
 
-                throw new InvalidOperationException("What the hell are you doing?");
+                throw new InvalidOperationException("Sorry, using string indexers is currently not supported.");
             }
 
             return false;
@@ -142,27 +141,34 @@ namespace Skopik
 
             if (TryGetEntries(out entries))
             {
-                ISkopikObject obj = null;
+                ISkopikObject result = null;
 
-                if (entries.TryGetValue(binder.Name, out obj))
+                if (value is ISkopikObject)
                 {
-                    ISkopikObject result = null;
+                    result = (ISkopikObject)value;
+                }
+                else if (SkopikFactory.IsValueType(value))
+                {
+                    result = SkopikFactory.CreateValue(value);
+                }
 
-                    if (value is ISkopikObject)
-                    {
-                        result = (ISkopikObject)value;
-                    }
-                    else if (SkopikFactory.IsValueType(value))
-                    {
-                        result = SkopikFactory.CreateValue(value);
-                    }
-
-                    if (result != null)
+                if (result != null)
+                {
+                    if (entries.ContainsKey(binder.Name))
                     {
                         entries[binder.Name] = result;
-                        return true;
                     }
+                    else
+                    {
+                        entries.Add(binder.Name, result);
+                    }
+
+                    return true;
                 }
+            }
+            else
+            {
+                throw new InvalidOperationException("Cannot set member on a non-scope block.");
             }
             
             return false;
