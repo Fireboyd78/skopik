@@ -7,7 +7,7 @@ namespace Skopik
 {
     internal static class StringExtensions
     {
-        public static string StripQuotes(this string @this)
+        public static string StripQuotes(this string @this, bool wrap = false)
         {
             var start = 0;
             var length = 0;
@@ -42,8 +42,13 @@ namespace Skopik
                         }
                         else
                         {
-                            // wrap in '<value>'
-                            return $"'{@this.Substring(start, length)}'";
+                            var result = @this.Substring(start, length);
+
+                            // wrap in '<value>' ?
+                            if (wrap)
+                                result = $"'{result}'";
+
+                            return result;
                         }
                     }
                 }

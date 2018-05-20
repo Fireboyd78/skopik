@@ -75,8 +75,11 @@ namespace Skopik
                         // named scopes
                         if (!Skopik.IsOpeningBrace(nextToken))
                             throw new InvalidOperationException($"ReadObject() -- malformed data on line {Reader.CurrentLine}.");
+
+                        // wrap in single quotes
+                        var scopeName = token.StripQuotes(true);
                         
-                        return ReadBlock(Skopik.GetDataType(nextToken), strValue);
+                        return ReadBlock(Skopik.GetDataType(nextToken), scopeName);
                     }
                 }
 
@@ -235,7 +238,7 @@ namespace Skopik
                     // named scopes
                     if (Skopik.IsOpeningBrace(op))
                     {
-                        name = name.StripQuotes();
+                        name = name.StripQuotes(true);
 
                         obj = ReadBlock(Skopik.GetDataType(op), name);
                     }
