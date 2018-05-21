@@ -5,6 +5,11 @@ namespace Skopik
     public interface ISkopikValue : ISkopikObject, IConvertible
     {
         object Value { get; set; }
+
+        bool TryGetValue<T>(ref T result, T defaultValue = default(T));
+
+        bool TryGetValue(ref object result);
+        bool TrySetValue(object value);
     }
 
     public abstract class SkopikValue : SkopikObject, ISkopikValue
@@ -111,6 +116,8 @@ namespace Skopik
         {
             var data = GetValue();
 
+            if (conversionType.IsInstanceOfType(data))
+                return data;
             if (data is IConvertible)
                 return Convert.ChangeType(data, conversionType, provider);
             
@@ -132,6 +139,46 @@ namespace Skopik
             return ConvertTo(Convert.ToUInt64, provider);
         }
 
+        public virtual bool TryGetValue<T>(ref T result, T defaultValue = default(T))
+        {
+            var type = typeof(T);
+
+            if (SkopikFactory.IsValueType(type, DataType))
+            {
+                result = (T)GetValue();
+                return true;
+            }
+
+            result = defaultValue;
+            return false;
+        }
+
+        public virtual bool TryGetValue(ref object result)
+        {
+            var type = result.GetType();
+
+            if (SkopikFactory.IsValueType(type, DataType))
+            {
+                result = GetValue();
+                return true;
+            }
+
+            return false;
+        }
+        
+        public virtual bool TrySetValue(object value)
+        {
+            var type = value.GetType();
+            
+            if (SkopikFactory.IsValueType(type, DataType))
+            {
+                SetValue(value);
+                return true;
+            }
+
+            return false;
+        }
+        
         public override string ToString()
         {
             return GetValue()?.ToString() ?? "<null>";
@@ -167,6 +214,47 @@ namespace Skopik
         void ISkopikObject.SetData(object value)
         {
             SetValue(value);
+        }
+
+        public override bool TryGetValue<TV>(ref TV result, TV defaultValue = default(TV))
+        {
+            var typeA = typeof(TV);
+            var typeB = typeof(T);
+
+            if (typeA.IsAssignableFrom(typeB))
+            {
+                result = (TV)GetValue();
+                return true;
+            }
+
+            result = defaultValue;
+            return false;
+        }
+
+        public override bool TryGetValue(ref object result)
+        {
+            var type = typeof(T);
+
+            if (SkopikFactory.IsValueType(type, DataType))
+            {
+                result = Value;
+                return true;
+            }
+
+            return false;
+        }
+
+        public override bool TrySetValue(object value)
+        {
+            var type = typeof(T);
+
+            if (SkopikFactory.IsValueType(type, DataType))
+            {
+                Value = (T)value;
+                return true;
+            }
+
+            return false;
         }
 
         public override string ToString()
