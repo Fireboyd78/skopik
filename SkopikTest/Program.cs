@@ -17,74 +17,63 @@ namespace SkopikTest
             Debug.WriteLine(message);
         }
 
-        static void RunTest(SkopikData skopData)
+        static void DumpData(SkopikData skopData, int indentLevel = 0)
         {
-            var data = skopData.GlobalScope;
+            var idx = 0;
 
-            ISkopikObject[] objects = {
-                data["test_bool"],
-                data["test_int"],
-                data["test_uint"],
-                data["test_long"],
-                data["test_ulong"],
-                data["test_binary"],
-                data["test_double"],
-                data["test_float"],
-                data["test_string"],
-                data["test_inline"],
-                data["'Test array'"],
-                data["'Test scope'"],
-                data["'Test tuple'"],
-            };
-            
-            for (int i = 0; i < objects.Length; i++)
+            foreach (var kv in skopData)
             {
-                var obj = objects[i];
-                var typeName = "ERROR!!!";
+                var obj = kv.Value;
 
                 if (obj != null)
                 {
-                    var type = obj.GetType();
+                    var str = $"{obj.DataType}";
 
-                    typeName = type.Name;
-
-                    if (type.IsGenericType)
+                    if (obj is ISkopikBlock)
                     {
-                        var args = type.GetGenericArguments().Select((e) => e.Name);
+                        if (obj.IsTuple)
+                            str = $"{((ISkopikTuple)obj).TupleType}";
 
-                        typeName = $"{typeName.Split('`')[0]}<{String.Join(",", args)}>";
+                        var block = (ISkopikBlock)obj;
+
+                        str = $"{str}[{block.Count}]";
+
+                        if (!block.IsAnonymous)
+                            str = $"{str}({block.Name})";
+                    }
+                    else if (obj is ISkopikValue)
+                    {
+                        str = $"{str}('{(ISkopikValue)obj}')";
                     }
 
-                    if (typeName.StartsWith("Skopik"))
-                        typeName = typeName.Substring(6);
+                    if (skopData.IsScope)
+                        str = $"{kv.Key} : {str}";
 
-                    if (obj is ISkopikValue)
-                        typeName = $"{typeName} : '{(ISkopikValue)obj}'";
+                    str = $"({idx++}) {str}";
+
+                    if (indentLevel > 0)
+                    {
+                        var indent = "";
+
+                        for (int i = 0; i < indentLevel; i++)
+                            indent += " ";
+
+                        str = $"{indent}{str}";
+                    }
+
+                    WriteLog(str);
+
+                    if (obj is ISkopikBlock)
+                    {
+                        var inner = new SkopikData((ISkopikBlock)obj);
+                        DumpData(inner, indentLevel + 2);
+                    }
                 }
-
-                WriteLog($"[{i}]: {typeName}");
+                else
+                {
+                    WriteLog("ERROR!!!");
+                }
             }
-
-            // dynamic testing
-            dynamic test = skopData.GlobalScope.AsDynamic();
-            
-            WriteLog($"test_string = {test.test_string}");
-
-            // can also use indexers, e.g. test.test_inline[0]
-            var test_inline = new string[] {
-                test.test_inline.test,
-                test.test_inline.inline,
-            };
-
-            WriteLog($"test_inline = [ {test_inline[0]}, {test_inline[1]} ]");
-
-            test.test_string = "Hello, world.";
-            WriteLog($"test_string (new) = {test.test_string}");
-
-            test.test_inline[0] = "eyyy";
-            test.test_inline[1] = "lmaooo";
-
-            WriteLog($"test_inline (new) = [ {test.test_inline[0]}, {test.test_inline[1]} ]");
         }
 
         static void Main(string[] args)
@@ -105,6 +94,7 @@ namespace SkopikTest
             
             WriteLog($"Running {nLoops:N0} tests on '{Path.GetFullPath(testFilename)}'...");
 
+            var name = Path.GetFileNameWithoutExtension(testFilename);
             var buffer = File.ReadAllBytes(testFilename);
             
             timer.Start();
@@ -117,12 +107,12 @@ namespace SkopikTest
 
                     timer.Restart();
                 }
-                
-                var skopData = new SkopikData(buffer);
+
+                var skopData = SkopikData.Load(buffer, name);
 
                 // only do this for tests run one time
                 if (nLoops == 1)
-                    RunTest(skopData);
+                    DumpData(skopData);
             }
             timer.Stop();
             

@@ -60,11 +60,6 @@ namespace Skopik
         {
             get { return Count == 0; }
         }
-
-        public dynamic AsDynamic()
-        {
-            return new SkopikDynamicBlock(this);
-        }
         
         protected SkopikBlock(SkopikDataType type)
             : base (type)

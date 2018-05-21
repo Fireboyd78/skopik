@@ -49,7 +49,6 @@
     <Compile Include="Types\SkopikBlock.cs" />
     <Compile Include="Types\SkopikDataType.cs" />
     <Compile Include="SkopikData.cs" />
-    <Compile Include="Types\SkopikDynamic.cs" />
     <Compile Include="Types\SkopikObject.cs" />
     <Compile Include="Types\SkopikScope.cs" />
     <Compile Include="Types\SkopikTuple.cs" />
