@@ -352,7 +352,7 @@ namespace Skopik
                 {
                     // add null entries if needed
                     for (int i = (maxIndex + 1); i < index; i++)
-                        array.Entries.Insert(i, null);
+                        array.Entries.Insert(i, SkopikObject.Null);
                 }
                 else
                 {
