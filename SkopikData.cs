@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Skopik
@@ -309,6 +310,94 @@ namespace Skopik
                 return TrySetObject(index, SkopikFactory.CreateValue(value));
 
             return false;
+        }
+
+        private object GetMember(MemberInfo info, int index, StringComparison comparisonType)
+        {
+            ISkopikObject result = null;
+
+            if (IsScope)
+            {
+                result = Entries.FirstOrDefault((e) => String.Equals(e.Key, info.Name, comparisonType)).Value;
+            }
+            else
+            {
+                foreach (var obj in Block)
+                {
+                    if (obj is ISkopikBlock)
+                    {
+                        var block = (ISkopikBlock)obj;
+
+                        if (String.Equals(block.Name, info.Name, comparisonType))
+                        {
+                            result = obj;
+                            break;
+                        }
+                    }
+                }
+
+                if ((result == null) && (index < Block.Count))
+                    result = Block[index];
+            }
+
+            if (result == null)
+                throw new InvalidOperationException($"Couldn't find member '{info.Name}'!");
+
+            if (result is ISkopikValue)
+                return ((ISkopikValue)result).Value;
+
+            throw new InvalidOperationException($"Found member '{info.Name}', but is too complex to use.");
+        }
+
+        public T ToStruct<T>(params string[] keys)
+        {
+            return ToStruct<T>(StringComparison.InvariantCulture, keys);
+        }
+
+        public T ToStruct<T>(StringComparison comparisonType, params string[] keys)
+        {
+            var type = typeof(T);
+            var result = Activator.CreateInstance<T>();
+            
+            var props = type.GetProperties();
+            var fields = type.GetFields();
+
+            var idx = 0;
+            
+            foreach (var k in keys)
+            {
+                var isField = k.StartsWith("@");
+                var key = (isField) ? k.Substring(1) : k;
+
+                if (isField)
+                {
+                    var field = fields.FirstOrDefault((p) => String.Equals(p.Name, key, comparisonType));
+
+                    if (field == null)
+                        continue;
+
+                    var value = GetMember(field, idx, comparisonType);
+
+                    field.SetValueDirect(__makeref(result), value);
+                }
+                else
+                {
+                    var prop = props.FirstOrDefault((p) => String.Equals(p.Name, key, comparisonType));
+
+                    if (prop == null)
+                        continue;
+
+                    var value = GetMember(prop, idx, comparisonType);
+                    var obj = RuntimeHelpers.GetObjectValue(result);
+
+                    prop.SetValue(obj, value, null);
+                    result = (T)obj;
+                }
+
+                idx++;
+            }
+
+            return result;
         }
         
         public static SkopikData Load(Stream stream, string name)
