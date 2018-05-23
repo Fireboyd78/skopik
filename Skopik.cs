@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 
@@ -10,6 +11,8 @@ namespace Skopik
     {
         private static bool m_lookupReady = false;
         private static int[] m_lookup = new int[128];
+
+        internal static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
         
         internal static readonly string[] Keywords = { "true", "false", "null" };
 
@@ -30,7 +33,11 @@ namespace Skopik
         internal static readonly char[] DelimiterKeys = { ',', ';' };
 
         internal static readonly char[] SuffixKeys = { 'b', 'd', 'f', 'u', 'U', 'L' };
+        internal static readonly char[] ExponentialKeys = { 'e', 'E' };
 
+        internal static readonly char NegativePrefixKey = '-';
+        internal static readonly char DecimalPointKey = '.';
+        
         internal static readonly string HexadecimalPrefix = "0x";
 
         internal static readonly SkopikDataType[] WordLookup = {
@@ -103,7 +110,7 @@ namespace Skopik
                 // (negative hex numbers need to be processed at another point)
                 if (!isHex)
                 {
-                    if (c == '.' || c == '-')
+                    if (c == DecimalPointKey || c == NegativePrefixKey)
                     {
                         ++length;
                         continue;
@@ -117,7 +124,8 @@ namespace Skopik
                 if ((flags & CharacterTypeFlags.Letter) != 0)
                 {
                     // ABCDEF or abcdef?
-                    if (isHex && ((c & ~0x67) == 0))
+                    // (adding 1 prevents 'g' and 'G' false positives)
+                    if (isHex && (((c + 1) & ~0x67) == 0))
                     {
                         ++length;
                         continue;
@@ -226,8 +234,10 @@ namespace Skopik
 
                     if (suffixType == SkopikDataType.None)
                     {
+                        var eIdx = ((flags & CharacterTypeFlags.Lowercase) != 0) ? 0 : 1;
+
                         // check for exponential float
-                        if (!isHex && ((c & ~0x65) == 0))
+                        if (!isHex && (c == ExponentialKeys[eIdx]))
                         {
                             if (hasExponent || (!hasDigit || (!hasDigit && !hasSeparator)))
                                 throw new InvalidOperationException($"Malformed number data: '{value}'");
@@ -238,14 +248,14 @@ namespace Skopik
                 }
                 else
                 {
-                    if (c == '.')
+                    if (c == DecimalPointKey)
                     {
                         if (!hasDigit || hasSeparator)
                             throw new InvalidOperationException($"Malformed number data: '{value}'");
 
                         hasSeparator = true;
                     }
-                    else if (c == '-')
+                    else if (c == NegativePrefixKey)
                     {
                         if (hasExponent)
                         {
@@ -372,7 +382,7 @@ namespace Skopik
         
         internal static bool IsNegativeNumber(string value)
         {
-            return ((value.Length > 1) && (value[0] == '-'));
+            return ((value.Length > 1) && (value[0] == NegativePrefixKey));
         }
         
         internal static bool IsHexadecimalNumber(string value)

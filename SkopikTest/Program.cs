@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -43,7 +44,44 @@ namespace SkopikTest
                     }
                     else if (obj is ISkopikValue)
                     {
-                        str = $"{str}('{(ISkopikValue)obj}')";
+                        var value = ((ISkopikValue)obj).Value;
+
+                        if (value is BitArray)
+                        {
+                            var bitArray = value as BitArray;
+                            var bits = new List<bool>();
+
+                            foreach (var bit in bitArray)
+                                bits.Add((bool)bit);
+
+                            bits.Reverse();
+
+                            var bitStr = String.Join("", bits.Select((b) => (b) ? 1 : 0));
+
+                            var bitCheck = '0';
+                            var startIdx = 0;
+
+                            for (int i = 1; i < bitStr.Length; i++)
+                            {
+                                if (bitStr[i] != bitCheck)
+                                    break;
+
+                                startIdx++;
+                            }
+                            
+                            // only trim if at least one group of zero-bits were found
+                            if (startIdx > 3)
+                            {
+                                // trim in groups of 4 bits
+                                bitStr = bitStr.Substring((startIdx / 4) * 4);
+                            }
+
+                            str = $"{str}('{bitStr}b')";
+                        }
+                        else
+                        {
+                            str = $"{str}('{value}')";
+                        }
                     }
 
                     if (skopData.IsScope)

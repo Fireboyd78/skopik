@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -109,9 +110,9 @@ namespace Skopik
                 switch (dataType)
                 {
                 case SkopikDataType.Float:
-                    return SkopikFactory.CreateValue(decimalToken, Convert.ToSingle);
+                    return SkopikFactory.CreateValue(decimalToken, float.Parse, Skopik.Culture);
                 case SkopikDataType.Double:
-                    return SkopikFactory.CreateValue(decimalToken, Convert.ToDouble);
+                    return SkopikFactory.CreateValue(decimalToken, double.Parse, Skopik.Culture);
                 }
             }
 
@@ -325,7 +326,7 @@ namespace Skopik
 
                         try
                         {
-                            index = int.Parse(nextToken);
+                            index = int.Parse(nextToken, Skopik.Culture);
                         }
                         catch (Exception)
                         {

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Skopik
 {
@@ -89,6 +90,22 @@ namespace Skopik
             try
             {
                 value = parseFn(textValue);
+            }
+            catch (Exception e)
+            {
+                throw new InvalidOperationException($"Error parsing value '{textValue}': {e.Message}");
+            }
+
+            return CreateValue(value);
+        }
+
+        public static ISkopikValue CreateValue<T>(string textValue, Func<string, IFormatProvider, T> parseFn, IFormatProvider provider)
+        {
+            T value = default(T);
+
+            try
+            {
+                value = parseFn(textValue, provider);
             }
             catch (Exception e)
             {
